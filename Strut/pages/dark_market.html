@@ -1,0 +1,29 @@
+<div>
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-3xl font-bold branch-title">Dark Market del Clan</h2>
+            <p id="market-host-info" class="text-sm text-gray-400 font-mono"></p>
+        </div>
+        <div>
+            <!-- Qui potremmo aggiungere statistiche del market -->
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Sezione per mettere in vendita i dati -->
+        <div>
+            <h3 class="text-xl font-semibold mb-4 text-gray-300">Archivio Dati del Clan</h3>
+            <div id="clan-data-for-sale" class="space-y-3 max-h-[60vh] overflow-y-auto p-2 bg-black/20 rounded-lg">
+                <!-- I dati dall'archivio del clan verranno inseriti qui da JS -->
+            </div>
+        </div>
+
+        <!-- Sezione con i dati attualmente in vendita -->
+        <div>
+            <h3 class="text-xl font-semibold mb-4 text-gray-300">Oggetti in Vendita</h3>
+            <div id="market-listings" class="space-y-3 max-h-[60vh] overflow-y-auto p-2 bg-black/20 rounded-lg">
+                <!-- Le inserzioni del market verranno inserite qui da JS -->
+            </div>
+        </div>
+    </div>
+</div>
