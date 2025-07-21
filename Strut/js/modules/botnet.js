@@ -1,318 +1,372 @@
-// File: js/modules/botnet.js
-// VERSIONE AGGIORNATA: Aggiunta gestione gruppi e funzionalità pulsanti di manutenzione.
+// js/modules/botnet.js
 
-let selectedHostIds = new Set();
+import { player, savePlayerData } from '../data.js';
+import { addNotification } from '../main.js';
+// La logica di executeFlow sarà simulata qui per ora, come da documento.
+// import { executeFlow } from '../flow_logic.js'; 
 
-function initBotnetPage() {
-    renderInfectedHostsList();
-    updateBotnetAggregateStats();
-    renderHostDetailsPanel();
-}
+// Stato del modulo
+let botnetInterval;
+let selectedHostIp = null;
 
-function updateBotnetAggregateStats() {
-    const container = document.getElementById('botnet-aggregate-stats');
-    if (!container) return;
+// Elementi della modale
+let hostModal, closeModalBtn, modalHostIp, modalHostLocation, modalHostStatus, modalHostInfection, modalHostResources, modalHostStability, modalHostTraceability, flowSelector, executeFlowBtn, scanDataBtn, propagateMalwareBtn, cleanHostBtn, modalHostLog;
 
-    const totalHosts = state.infectedHostPool.length;
-    const activeHosts = state.infectedHostPool.filter(h => h.status === 'Active').length;
-
-    let aggregatePower = 0;
-    state.infectedHostPool.forEach(host => {
-        if (host.status === 'Active') {
-            aggregatePower += host.resources.cpuPower;
-        }
-    });
-
-    container.innerHTML = `
-        <div class="text-center">
-            <div class="text-xs text-gray-400">TOTAL HOSTS</div>
-            <div class="text-2xl font-bold text-white">${totalHosts}</div>
-        </div>
-        <div class="text-center">
-            <div class="text-xs text-gray-400">ACTIVE HOSTS</div>
-            <div class="text-2xl font-bold text-green-400">${activeHosts}</div>
-        </div>
-        <div class="text-center">
-            <div class="text-xs text-gray-400">AGGREGATE POWER</div>
-            <div class="text-2xl font-bold text-purple-400">${aggregatePower.toFixed(2)} GFLOPS</div>
-        </div>
-    `;
+export function initBotnet() {
+    console.log("Initializing Botnet module...");
+    const commandButton = document.getElementById('botnet-command-all');
+    if (commandButton) {
+        commandButton.addEventListener('click', () => executeBotnetCommand('all'));
+    }
     
-    const countEl = document.getElementById('infected-host-count');
-    if(countEl) countEl.textContent = totalHosts;
+    // Inizializza gli elementi della modale
+    hostModal = document.getElementById('host-interaction-modal');
+    closeModalBtn = document.getElementById('close-host-modal');
+    modalHostIp = document.getElementById('modal-host-ip');
+    modalHostLocation = document.getElementById('modal-host-location');
+    modalHostStatus = document.getElementById('modal-host-status');
+    modalHostInfection = document.getElementById('modal-host-infection');
+    modalHostResources = document.getElementById('modal-host-resources');
+    modalHostStability = document.getElementById('modal-host-stability');
+    modalHostTraceability = document.getElementById('modal-host-traceability');
+    flowSelector = document.getElementById('flow-selector');
+    executeFlowBtn = document.getElementById('execute-flow-btn');
+    scanDataBtn = document.getElementById('scan-data-btn');
+    propagateMalwareBtn = document.getElementById('propagate-malware-btn');
+    cleanHostBtn = document.getElementById('clean-host-btn');
+    modalHostLog = document.getElementById('modal-host-log');
+
+    // Evento di chiusura della modale
+    if(closeModalBtn) {
+        closeModalBtn.onclick = () => {
+            hostModal.style.display = "none";
+            selectedHostIp = null;
+        };
+    }
+    window.onclick = (event) => {
+        if (event.target == hostModal) {
+            hostModal.style.display = "none";
+            selectedHostIp = null;
+        }
+    };
+    
+    // Aggiunge gli event listener per i pulsanti della modale
+    if(executeFlowBtn) executeFlowBtn.addEventListener('click', handleExecuteFlow);
+    if(scanDataBtn) scanDataBtn.addEventListener('click', handleScanData);
+    if(propagateMalwareBtn) propagateMalwareBtn.addEventListener('click', handlePropagate);
+    if(cleanHostBtn) cleanHostBtn.addEventListener('click', handleCleanHost);
+
+
+    displayInfectedHosts();
+    updateBotnetStats();
+
+    // Avvia la generazione di reddito dalla botnet
+    if (botnetInterval) clearInterval(botnetInterval);
+    botnetInterval = setInterval(generateBotnetIncome, 5000); // Genera reddito ogni 5 secondi
 }
 
-function renderInfectedHostsList() {
-    const container = document.getElementById('infected-hosts-list');
-    if (!container) return;
+function updateBotnetStats() {
+    const hostCount = player.infectedHostPool.length;
+    const totalResources = player.infectedHostPool.reduce((sum, host) => sum + host.resources, 0);
+    const averageStability = hostCount > 0 ? (player.infectedHostPool.reduce((sum, host) => sum + host.stabilityScore, 0) / hostCount).toFixed(2) : 0;
+    
+    const hostCountEl = document.getElementById('botnet-host-count');
+    const totalResourcesEl = document.getElementById('botnet-total-resources');
+    const avgStabilityEl = document.getElementById('botnet-avg-stability');
 
-    if (state.infectedHostPool.length === 0) {
-        container.innerHTML = `<p class="text-gray-500 text-center p-4">Nessun host infetto nel pool. Esegui attacchi con obiettivi di controllo remoto per acquisirne.</p>`;
+    if(hostCountEl) hostCountEl.textContent = hostCount;
+    if(totalResourcesEl) totalResourcesEl.textContent = totalResources;
+    if(avgStabilityEl) avgStabilityEl.textContent = `${averageStability}%`;
+}
+
+function displayInfectedHosts() {
+    const listElement = document.getElementById('infected-hosts-list');
+    if (!listElement) return;
+    listElement.innerHTML = ''; // Pulisce la lista esistente
+
+    player.infectedHostPool.forEach(host => {
+        const row = document.createElement('tr');
+        row.setAttribute('data-host-ip', host.ip);
+        row.innerHTML = `
+            <td>${host.ip}</td>
+            <td>${host.location}</td>
+            <td>${host.infectionType}</td>
+            <td>${host.resources}</td>
+            <td>${host.stabilityScore.toFixed(2)}%</td>
+            <td>${host.traceabilityScore.toFixed(2)}%</td>
+            <td class="status-${host.status.toLowerCase()}">${host.status}</td>
+        `;
+
+        row.addEventListener('click', () => {
+            openHostContextMenu(host.ip);
+        });
+
+        listElement.appendChild(row);
+    });
+    updateBotnetStats();
+}
+
+function openHostContextMenu(hostIp) {
+    const host = player.infectedHostPool.find(h => h.ip === hostIp);
+    if (!host) {
+        console.error("Host non trovato:", hostIp);
         return;
     }
 
-    // Raggruppa gli host per gruppo
-    const groupedHosts = { 'unassigned': [] };
-    Object.keys(state.botnetGroups).forEach(g => groupedHosts[g] = []);
-    
-    state.infectedHostPool.forEach(host => {
-        const groupName = Object.keys(state.botnetGroups).find(g => state.botnetGroups[g].hostIds.includes(host.id));
-        if (groupName) {
-            groupedHosts[groupName].push(host);
-        } else {
-            groupedHosts['unassigned'].push(host);
-        }
+    selectedHostIp = host.ip;
+
+    // Popola la modale con i dati dell'host
+    updateHostModalDetails(host);
+
+    // Popola il selettore dei flussi
+    flowSelector.innerHTML = '<option value="">-- Seleziona un Flusso --</option>';
+    player.savedFlows.forEach(flow => {
+        const option = document.createElement('option');
+        option.value = flow.id;
+        option.textContent = flow.name;
+        flowSelector.appendChild(option);
     });
+    
+    // Pulisce il log
+    modalHostLog.innerHTML = '<li>Sistema pronto.</li>';
 
-    let html = '';
-    for (const groupName in groupedHosts) {
-        if (groupedHosts[groupName].length > 0) {
-            html += `<h4 class="text-sm font-bold text-indigo-400 sticky top-0 bg-gray-800/80 backdrop-blur-sm py-1 px-2 rounded my-2">${groupName === 'unassigned' ? 'Non Raggruppati' : groupName}</h4>`;
-            html += groupedHosts[groupName].map(host => {
-                const traceScore = host.traceabilityScore || 0;
-                let traceColorClass = 'trace-low';
-                if (traceScore > 75) traceColorClass = 'trace-high';
-                else if (traceScore > 40) traceColorClass = 'trace-medium';
+    // Mostra la modale
+    hostModal.style.display = 'block';
+}
 
-                let statusColor = 'text-gray-400';
-                if (host.status === 'Active') statusColor = 'text-green-400';
-                if (host.status === 'Offline') statusColor = 'text-yellow-400';
-                if (host.status === 'Compromised') statusColor = 'text-red-400';
+function updateHostModalDetails(host) {
+    if (!host || !modalHostIp) return;
+    modalHostIp.textContent = `Host: ${host.ip}`;
+    modalHostLocation.textContent = host.location;
+    modalHostStatus.innerHTML = `<span class="status-${host.status.toLowerCase()}">${host.status}</span>`;
+    modalHostInfection.textContent = host.infectionType;
+    modalHostResources.textContent = host.resources;
+    modalHostStability.textContent = `${host.stabilityScore.toFixed(2)}%`;
+    modalHostTraceability.textContent = `${host.traceabilityScore.toFixed(2)}%`;
+}
 
-                return `
-                    <div class="host-card p-3 rounded-lg cursor-pointer hover:bg-gray-700/50 ${selectedHostIds.has(host.id) ? 'bg-indigo-900/50 border border-indigo-500' : 'border border-transparent'}" data-host-id="${host.id}">
-                        <div class="flex justify-between items-center">
-                            <p class="font-mono text-sm text-white">${host.ipAddress}</p>
-                            <p class="text-xs font-bold ${statusColor}">${host.status}</p>
-                        </div>
-                        <p class="text-xs text-gray-400">${host.location}</p>
-                        <div class="trace-bar-bg mt-2">
-                            <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
+function addLogToHostModal(message) {
+    if (!modalHostLog) return;
+    const logEntry = document.createElement('li');
+    const timestamp = new Date().toLocaleTimeString();
+    logEntry.textContent = `[${timestamp}] ${message}`;
+    modalHostLog.appendChild(logEntry);
+    modalHostLog.scrollTop = modalHostLog.scrollHeight; // Auto-scroll in basso
+}
+
+function handleExecuteFlow() {
+    if (!selectedHostIp) return;
+    const host = player.infectedHostPool.find(h => h.ip === selectedHostIp);
+    const flowId = flowSelector.value;
+
+    if (!host || !flowId) {
+        addLogToHostModal("Errore: Nessun host o flusso selezionato.");
+        addNotification("Seleziona un host e un flusso da eseguire.", "error");
+        return;
     }
 
-    container.innerHTML = html;
+    const flow = player.savedFlows.find(f => f.id === flowId);
+    if (!flow) {
+        addLogToHostModal(`Errore: Flusso con ID ${flowId} non trovato.`);
+        return;
+    }
 
-    container.querySelectorAll('.host-card').forEach(card => {
-        card.addEventListener('click', (event) => {
-            const hostId = card.dataset.hostId;
-            if (event.ctrlKey || event.metaKey) {
-                if (selectedHostIds.has(hostId)) {
-                    selectedHostIds.delete(hostId);
-                } else {
-                    selectedHostIds.add(hostId);
-                }
-            } else {
-                selectedHostIds.clear();
-                selectedHostIds.add(hostId);
+    addLogToHostModal(`Esecuzione del flusso '${flow.name}' su ${host.ip}...`);
+    
+    // Simula il tempo di esecuzione
+    setTimeout(() => {
+        // Simulazione basata sulla documentazione
+        const hasDataExfiltration = flow.blocks.some(b => b.type === 'dataExfiltration');
+        const hasPropagation = flow.blocks.some(b => b.type === 'networkWorm');
+        
+        let success = Math.random() * 100 < host.stabilityScore;
+
+        if (success) {
+            addLogToHostModal(`Flusso '${flow.name}' eseguito con successo.`);
+            if (hasDataExfiltration) {
+                const dataValue = Math.floor(Math.random() * 500 + 100) * host.resources;
+                player.dataPackets.push({
+                    id: `dp_${Date.now()}`,
+                    value: dataValue,
+                    source: host.ip,
+                    type: "Corporate Mails" // Tipo di esempio
+                });
+                addLogToHostModal(`Dati esfiltrati. Valore: $${dataValue}.`);
+                addNotification(`Pacchetto dati acquisito da ${host.ip}`, "success");
             }
-            renderInfectedHostsList();
-            renderHostDetailsPanel();
-        });
-    });
-}
-
-function renderHostDetailsPanel() {
-    const container = document.getElementById('host-details-panel');
-    if (!container) return;
-
-    // UI per la gestione dei gruppi (visibile se ci sono host selezionati)
-    let groupManagementHTML = '';
-    if (selectedHostIds.size > 0) {
-        const groupOptions = Object.keys(state.botnetGroups).map(g => `<option value="${g}">${g}</option>`).join('');
-        groupManagementHTML = `
-            <div class="mt-6 p-4 bg-gray-900/50 rounded-lg">
-                <h4 class="text-lg font-semibold text-indigo-300 mb-3">Gestione Gruppo</h4>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="new-group-name" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full" placeholder="Nuovo nome gruppo...">
-                    <button id="create-group-btn" class="px-4 py-2 font-semibold rounded-md bg-green-600 hover:bg-green-700">Crea</button>
-                </div>
-                <div class="flex gap-2">
-                    <select id="assign-group-select" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full">
-                        <option value="unassigned">Nessun Gruppo</option>
-                        ${groupOptions}
-                    </select>
-                    <button id="assign-group-btn" class="px-4 py-2 font-semibold rounded-md bg-blue-600 hover:bg-blue-700">Assegna</button>
-                </div>
-            </div>
-        `;
-    }
-
-    if (selectedHostIds.size === 0) {
-        container.innerHTML = `<p class="text-center text-gray-500">Seleziona un host dalla lista per visualizzare i dettagli e lanciare comandi.</p>`;
-        return;
-    }
-
-    if (selectedHostIds.size > 1) {
-        container.innerHTML = `<p class="text-center text-gray-300">${selectedHostIds.size} host selezionati. Pronti a ricevere un comando di gruppo.</p>${groupManagementHTML}`;
-    } else {
-        const hostId = selectedHostIds.values().next().value;
-        const host = state.infectedHostPool.find(h => h.id === hostId);
-        if (!host) return;
-
-        container.innerHTML = `
-            <h3 class="text-xl font-bold font-mono text-white mb-2">${host.ipAddress}</h3>
-            <p class="text-sm text-gray-400 mb-4">${host.location}</p>
-            <div class="grid grid-cols-2 gap-4 text-sm mb-6">
-                <div><span class="font-semibold text-gray-300">Status:</span> <span class="font-bold text-green-400">${host.status}</span></div>
-                <div><span class="font-semibold text-gray-300">Stabilità:</span> ${host.stabilityScore.toFixed(0)}%</div>
-                <div><span class="font-semibold text-gray-300">Tracciabilità:</span> ${host.traceabilityScore.toFixed(0)}%</div>
-                <div><span class="font-semibold text-gray-300">Potenza CPU:</span> ${host.resources.cpuPower.toFixed(2)} GFLOPS</div>
-                <div><span class="font-semibold text-gray-300">Banda:</span> ${host.resources.bandwidth} Mbps</div>
-                <div><span class="font-semibold text-gray-300">Infezione:</span> ${host.infectionType}</div>
-            </div>
-            <div>
-                <h4 class="text-lg font-semibold text-indigo-300 mb-3">Azioni di Manutenzione</h4>
-                <div class="grid grid-cols-3 gap-3">
-                    <button id="reinforce-btn" class="bg-yellow-600 hover:bg-yellow-700 text-black p-2 rounded text-sm">Rinforza Infezione</button>
-                    <button id="remove-traces-btn" class="bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">Rimuovi Tracce</button>
-                    <button id="deactivate-btn" class="bg-red-600 hover:bg-red-700 p-2 rounded text-sm">Disattiva</button>
-                </div>
-            </div>
-            ${groupManagementHTML}
-        `;
-        // Listener per i pulsanti di azione del singolo host
-        document.getElementById('reinforce-btn')?.addEventListener('click', reinforceInfection);
-        document.getElementById('remove-traces-btn')?.addEventListener('click', removeTraces);
-        document.getElementById('deactivate-btn')?.addEventListener('click', deactivateHost);
-    }
-    
-    // Listener per la gestione dei gruppi
-    document.getElementById('create-group-btn')?.addEventListener('click', createBotnetGroup);
-    document.getElementById('assign-group-btn')?.addEventListener('click', assignHostsToGroup);
-}
-
-// --- NUOVE FUNZIONI ---
-
-function createBotnetGroup() {
-    const input = document.getElementById('new-group-name');
-    const groupName = input.value.trim();
-    if (!groupName) {
-        showNotification("Inserisci un nome valido per il gruppo.", "error");
-        return;
-    }
-    if (state.botnetGroups[groupName]) {
-        showNotification(`Un gruppo con il nome "${groupName}" esiste già.`, "error");
-        return;
-    }
-    state.botnetGroups[groupName] = { hostIds: [], attachedFlows: [] };
-    state.botnetGroups[groupName].hostIds.push(...selectedHostIds);
-    
-    // Rimuovi gli host appena assegnati da altri gruppi
-    Object.keys(state.botnetGroups).forEach(g => {
-        if (g !== groupName) {
-            state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => !selectedHostIds.has(id));
-        }
-    });
-
-    saveState();
-    showNotification(`Gruppo "${groupName}" creato con ${selectedHostIds.size} host.`, "success");
-    selectedHostIds.clear();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
-    if (state.activePage === 'editor') populateHostSelector();
-}
-
-function assignHostsToGroup() {
-    const select = document.getElementById('assign-group-select');
-    const groupName = select.value;
-
-    // Rimuovi gli host selezionati da tutti i gruppi
-    Object.keys(state.botnetGroups).forEach(g => {
-        state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => !selectedHostIds.has(id));
-    });
-
-    // Assegna al nuovo gruppo (se non è "unassigned")
-    if (groupName !== 'unassigned' && state.botnetGroups[groupName]) {
-        state.botnetGroups[groupName].hostIds.push(...selectedHostIds);
-    }
-    
-    saveState();
-    showNotification(`${selectedHostIds.size} host assegnati.`, "info");
-    selectedHostIds.clear();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
-}
-
-function reinforceInfection() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
-    const host = state.infectedHostPool.find(h => h.id === hostId);
-    if (!host) return;
-
-    const cost = 0.001; // Costo in BTC
-    if (state.btc < cost) {
-        showNotification(`BTC insufficienti. Costo: ${cost} BTC.`, "error");
-        return;
-    }
-    state.btc -= cost;
-    
-    host.stabilityScore = Math.min(100, host.stabilityScore + 15);
-    host.traceabilityScore = Math.min(100, host.traceabilityScore + 25);
-
-    showNotification(`Infezione su ${host.ipAddress} rinforzata. Stabilità e tracciabilità aumentate.`, "success");
-    saveState();
-    updateUI();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
-}
-
-function removeTraces() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
-    const host = state.infectedHostPool.find(h => h.id === hostId);
-    if (!host) return;
-
-    const cost = 0.0005;
-    if (state.btc < cost) {
-        showNotification(`BTC insufficienti. Costo: ${cost} BTC.`, "error");
-        return;
-    }
-    state.btc -= cost;
-
-    const antiForensicsLevel = state.unlocked['Anti-Forensics'] || 0;
-    const effectiveness = (state.level * 2) + (antiForensicsLevel * 10); // 2 punti per livello, 10 per talento
-    const reduction = Math.min(host.traceabilityScore, Math.floor(Math.random() * effectiveness));
-    
-    host.traceabilityScore -= reduction;
-
-    showNotification(`Pulizia tracce su ${host.ipAddress} eseguita. Tracciabilità ridotta di ${reduction} punti.`, "success");
-    saveState();
-    updateUI();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
-}
-
-function deactivateHost() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
-    const hostIndex = state.infectedHostPool.findIndex(h => h.id === hostId);
-    if (hostIndex === -1) return;
-
-    const host = state.infectedHostPool[hostIndex];
-
-    if (confirm(`Sei sicuro di voler disattivare permanentemente l'host ${host.ipAddress}? Questa azione è irreversibile.`)) {
-        if (host.traceabilityScore > 50) {
-            const penalty = Math.ceil(host.traceabilityScore / 10);
-            state.identity.traces += penalty;
-            showNotification(`Host disattivato, ma le tracce evidenti hanno aumentato il tuo livello di sospetto di +${penalty}!`, "error");
+            if (hasPropagation) {
+                addLogToHostModal("Tentativo di propagazione avviato...");
+                if(Math.random() > 0.5) {
+                     addLogToHostModal("Propagazione riuscita verso un nuovo host!");
+                } else {
+                     addLogToHostModal("Propagazione fallita, nessun nuovo target trovato.");
+                }
+            }
+            host.stabilityScore -= 5;
         } else {
-            showNotification(`Host ${host.ipAddress} disattivato con successo.`, "info");
+            addLogToHostModal(`Esecuzione del flusso fallita. Rischio di rilevamento aumentato.`);
+            host.traceabilityScore += 15;
+            host.stabilityScore -= 10;
+        }
+
+        host.stabilityScore = Math.max(0, host.stabilityScore);
+        host.traceabilityScore = Math.min(100, host.traceabilityScore);
+
+        if (host.traceabilityScore >= 100 || host.stabilityScore <= 0) {
+            addLogToHostModal(`L'host ${host.ip} è diventato instabile ed è stato ripulito dalle autorità.`);
+            handleCleanHost(true); // Pulizia silenziosa
+        } else {
+            updateHostModalDetails(host);
+            displayInfectedHosts();
+            savePlayerData();
+        }
+
+    }, 2000); // 2 secondi di tempo di esecuzione
+}
+
+function handleScanData() {
+    if (!selectedHostIp) return;
+    const host = player.infectedHostPool.find(h => h.ip === selectedHostIp);
+    addLogToHostModal(`Scansione di ${host.ip} per dati di valore...`);
+
+    setTimeout(() => {
+        let success = Math.random() * 100 < host.stabilityScore - 10; // La scansione è rischiosa
+        if (success && host.resources > 2) {
+            const dataValue = Math.floor(Math.random() * 200 + 50) * host.resources;
+            player.dataPackets.push({
+                id: `dp_scan_${Date.now()}`,
+                value: dataValue,
+                source: host.ip,
+                type: "User Credentials"
+            });
+            addLogToHostModal(`Scansione completata. Trovato pacchetto dati del valore di $${dataValue}.`);
+            addNotification(`Pacchetto dati acquisito da ${host.ip}`, "success");
+            host.stabilityScore -= 10;
+            host.traceabilityScore += 5;
+        } else {
+            addLogToHostModal("Scansione fallita o non ha trovato nulla di valore. Tracciabilità aumentata.");
+            host.traceabilityScore += 20;
+        }
+
+        host.stabilityScore = Math.max(0, host.stabilityScore);
+        host.traceabilityScore = Math.min(100, host.traceabilityScore);
+        updateHostModalDetails(host);
+        displayInfectedHosts();
+        savePlayerData();
+
+    }, 2500);
+}
+
+function handlePropagate() {
+    if (!selectedHostIp) return;
+    const host = player.infectedHostPool.find(h => h.ip === selectedHostIp);
+    addLogToHostModal(`Tentativo di propagazione da ${host.ip}...`);
+
+    setTimeout(() => {
+        let success = Math.random() * 100 < host.stabilityScore - 15; // La propagazione è molto rischiosa
+        if (success) {
+            addLogToHostModal("Propagazione riuscita! Un nuovo host è stato aggiunto alla tua botnet.");
+            addNotification("Nuovo host aggiunto alla botnet!", "success");
+            const newHost = {
+                ip: `1${Math.floor(Math.random()*90+10)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+                location: host.location,
+                infectionType: 'Worm',
+                resources: Math.floor(Math.random() * 5 + 1),
+                stabilityScore: 90,
+                traceabilityScore: 10,
+                status: 'Idle',
+                log: []
+            };
+            player.infectedHostPool.push(newHost);
+            host.stabilityScore -= 20;
+            host.traceabilityScore += 10;
+        } else {
+            addLogToHostModal("Propagazione fallita. Il tentativo è stato rilevato.");
+            host.traceabilityScore += 25;
+        }
+
+        host.stabilityScore = Math.max(0, host.stabilityScore);
+        host.traceabilityScore = Math.min(100, host.traceabilityScore);
+        updateHostModalDetails(host);
+        displayInfectedHosts();
+        savePlayerData();
+
+    }, 3000);
+}
+
+function handleCleanHost(silent = false) {
+    if (!selectedHostIp) return;
+    
+    const hostIndex = player.infectedHostPool.findIndex(h => h.ip === selectedHostIp);
+    if (hostIndex > -1) {
+        const host = player.infectedHostPool[hostIndex];
+        player.infectedHostPool.splice(hostIndex, 1);
+
+        player.stats.traceability -= 2;
+        player.stats.traceability = Math.max(0, player.stats.traceability);
+        
+        if (!silent) {
+            addNotification(`Host ${host.ip} ripulito e rimosso dalla botnet.`, "info");
+            hostModal.style.display = "none";
         }
         
-        // Rimuovi l'host dal pool e da qualsiasi gruppo
-        state.infectedHostPool.splice(hostIndex, 1);
-        Object.keys(state.botnetGroups).forEach(g => {
-            state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => id !== hostId);
-        });
-        
-        selectedHostIds.clear();
-        saveState();
-        updateUI();
-        initBotnetPage(); // Re-inizializza l'intera pagina
+        selectedHostIp = null;
+        displayInfectedHosts();
+        savePlayerData();
     }
+}
+
+
+function executeBotnetCommand(command) {
+    addNotification(`Esecuzione del comando '${command}' su tutti i bot...`, 'info');
+}
+
+function generateBotnetIncome() {
+    if (player.infectedHostPool.length === 0) return;
+
+    const income = player.infectedHostPool.reduce((total, host) => {
+        const hostIncome = host.resources * (host.stabilityScore / 100) * 0.5;
+        return total + hostIncome;
+    }, 0);
+
+    if (income > 0) {
+        player.stats.money += income;
+    }
+
+    let needsUpdate = false;
+    player.infectedHostPool.forEach(host => {
+        if (Math.random() < 0.1) { 
+            host.stabilityScore -= Math.random() * 0.5;
+            needsUpdate = true;
+        }
+        if (Math.random() < 0.05) {
+            host.traceabilityScore += Math.random() * 0.5;
+            needsUpdate = true;
+        }
+
+        if (host.stabilityScore < 0) host.stabilityScore = 0;
+        if (host.traceabilityScore > 100) host.traceabilityScore = 100;
+        
+        if (host.stabilityScore < 10 || host.traceabilityScore > 90) {
+            if (Math.random() < 0.02) { // 2% di possibilità ogni 5 secondi
+                addNotification(`L'host ${host.ip} è stato rilevato e ripulito dalle autorità!`, "warning");
+                selectedHostIp = host.ip;
+                handleCleanHost(true); 
+                needsUpdate = true;
+            }
+        }
+    });
+
+    if(needsUpdate) {
+        displayInfectedHosts(); 
+        savePlayerData();
+    }
+}
+
+export function cleanupBotnet() {
+    if (botnetInterval) {
+        clearInterval(botnetInterval);
+        botnetInterval = null;
+    }
+    selectedHostIp = null;
 }

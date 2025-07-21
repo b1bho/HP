@@ -1,26 +1,91 @@
-<div>
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h2 class="text-3xl font-bold branch-title">Botnet Control Panel</h2>
-            <p id="botnet-summary" class="text-sm text-gray-400">Gestisci la tua rete di host compromessi.</p>
-        </div>
-        <div id="botnet-aggregate-stats" class="flex gap-4">
-            </div>
+<div class="header">
+    <h1>Botnet Control Panel</h1>
+    <p>Manage your network of infected hosts. Use them to generate revenue, launch attacks, or expand your reach.</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-item">
+        <h3>Total Hosts</h3>
+        <p id="botnet-host-count">0</p>
     </div>
+    <div class="stat-item">
+        <h3>Total Resources</h3>
+        <p id="botnet-total-resources">0</p>
+    </div>
+    <div class="stat-item">
+        <h3>Average Stability</h3>
+        <p id="botnet-avg-stability">0%</p>
+    </div>
+</div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-1">
-            <div class="flex justify-between items-center mb-3">
-                <h3 class="text-xl font-semibold text-gray-300">Pool di Host Infetti</h3>
-                <span id="infected-host-count" class="px-2 py-1 text-xs font-bold text-white bg-indigo-600 rounded-full">0</span>
-            </div>
-            <div id="infected-hosts-list" class="space-y-2 max-h-[60vh] overflow-y-auto p-2 bg-black/20 rounded-lg">
-                </div>
+<div class="section">
+    <h2>Global Commands</h2>
+    <div class="command-buttons">
+        <button id="botnet-command-all" class="button-style">Execute on All (Placeholder)</button>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Infected Hosts</h2>
+    <p>Click on a host to interact with it individually.</p>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>IP Address</th>
+                    <th>Location</th>
+                    <th>Infection Type</th>
+                    <th>Resources</th>
+                    <th>Stability</th>
+                    <th>Traceability</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="infected-hosts-list">
+                <!-- Host rows will be dynamically inserted here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- Host Interaction Modal -->
+<div id="host-interaction-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close-button" id="close-host-modal">&times;</span>
+        <h2 id="modal-host-ip">Host Details</h2>
+        <div class="host-details-grid">
+            <div><strong>Location:</strong> <span id="modal-host-location"></span></div>
+            <div><strong>Status:</strong> <span id="modal-host-status"></span></div>
+            <div><strong>Infection Type:</strong> <span id="modal-host-infection"></span></div>
+            <div><strong>Resources:</strong> <span id="modal-host-resources"></span></div>
+            <div><strong>Stability:</strong> <span id="modal-host-stability"></span></div>
+            <div><strong>Traceability:</strong> <span id="modal-host-traceability"></span></div>
         </div>
+        
+        <hr class="green-hr">
 
-        <div class="lg:col-span-2">
-            <div id="host-details-panel" class="bg-gray-800 p-6 rounded-lg">
-                <p class="text-center text-gray-500">Seleziona un host dalla lista per visualizzare i dettagli e lanciare comandi.</p>
+        <div class="host-actions">
+            <h3>Actions</h3>
+            <div class="action-item">
+                <label for="flow-selector">Attach Flow:</label>
+                <select id="flow-selector" class="input-style">
+                    <option value="">-- Select a Flow --</option>
+                </select>
+                <button id="execute-flow-btn" class="button-style">Execute Flow</button>
+            </div>
+            
+            <div class="action-item-group">
+                 <button id="scan-data-btn" class="button-style">Scan for Data</button>
+                 <button id="propagate-malware-btn" class="button-style">Propagate Malware</button>
+                 <button id="clean-host-btn" class="button-style-danger">Clean Host</button>
+            </div>
+        </div>
+        
+        <div class="host-log">
+            <h3>Activity Log</h3>
+            <div id="modal-host-log" class="log-box">
+                <!-- Log entries will be populated here -->
             </div>
         </div>
     </div>
