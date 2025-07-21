@@ -101,7 +101,7 @@ function showNotification(message, type = 'info') {
     // Rimuovi la notifica dopo 5 secondi
     setTimeout(() => {
         notif.remove();
-    }, 5000);
+    }, 8000);
 }
 // --- FINE NUOVA FUNZIONE ---
 

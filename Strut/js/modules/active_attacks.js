@@ -1,5 +1,5 @@
 // File: js/modules/active_attacks.js
-// VERSIONE AGGIORNATA: Implementata la logica delle contromisure e delle notifiche.
+// VERSIONE AGGIORNATA: La tracciabilità dell'IP di origine ora dipende dall'anonimato della catena di routing.
 
 function updateActiveAttacks() {
     if (state.activePage !== 'world') {
@@ -96,6 +96,7 @@ function renderActiveAttacksPanel() {
     });
 }
 
+// --- FUNZIONE MODIFICATA ---
 function handleAttackConsequences(attack, successRatio, effectiveStats) {
     const failureSeverity = 1 - successRatio;
     if (failureSeverity <= 0) return;
@@ -104,39 +105,64 @@ function handleAttackConsequences(attack, successRatio, effectiveStats) {
     traceIncrease += failureSeverity * 20;
     traceIncrease += (effectiveStats.rl / 10);
     traceIncrease -= (effectiveStats.an / 2);
-    traceIncrease += (100 - attack.flowFc) / 10;
+    traceIncrease += (100 - (attack.flowFc || 100)) / 10;
     traceIncrease += (attack.target.tier || 1) * 5;
     traceIncrease = Math.max(5, Math.ceil(traceIncrease));
 
-    const sourceIp = state.identity.realIp;
-    const allIpsInChain = [sourceIp, ...attack.routingChain.map(nodeId => {
+    // Aumenta lo score di tracciabilità per i nodi della catena di routing
+    attack.routingChain.forEach(nodeId => {
         const node = networkNodeData[nodeId] || marketData.networkServices.find(s => s.id === nodeId);
-        return node ? node.ipAddress : null;
-    }).filter(ip => ip)];
-
-    allIpsInChain.forEach(ip => {
-        if (!state.ipTraceability[ip]) {
-            state.ipTraceability[ip] = 0;
+        if (node && node.ipAddress) {
+            if (!state.ipTraceability[node.ipAddress]) state.ipTraceability[node.ipAddress] = 0;
+            state.ipTraceability[node.ipAddress] = Math.min(100, state.ipTraceability[node.ipAddress] + traceIncrease);
         }
-        state.ipTraceability[ip] = Math.min(100, state.ipTraceability[ip] + traceIncrease);
+    });
+
+    // Simula il tracciamento all'indietro per vedere se l'IP di origine viene scoperto
+    let traceSuccessful = true;
+    for (const nodeId of [...attack.routingChain].reverse()) {
+        const node = networkNodeData[nodeId] || marketData.networkServices.find(s => s.id === nodeId);
+        if (node) {
+            // Più alto l'anonimato, più alta la probabilità di bloccare la traccia
+            const chanceToBlockTrace = (node.anonymity * 5) / 100; // Es: 10 AN = 50% chance
+            if (Math.random() < chanceToBlockTrace) {
+                traceSuccessful = false;
+                showNotification(`La traccia dell'attacco è stata bloccata dal nodo: ${node.name}`, 'info');
+                break; // La traccia è stata interrotta
+            }
+        }
+    }
+
+    // Se la traccia ha superato l'intera catena, l'IP di origine è compromesso
+    if (traceSuccessful) {
+        let sourceIp = state.identity.realIp;
+        if (attack.host && attack.host.type === 'clan') {
+            const server = state.clan.infrastructure.servers.find(s => s.id === attack.host.serverId);
+            if (server) sourceIp = server.ip;
+        }
+
+        if (!state.ipTraceability[sourceIp]) state.ipTraceability[sourceIp] = 0;
+        state.ipTraceability[sourceIp] = Math.min(100, state.ipTraceability[sourceIp] + traceIncrease);
 
         state.identity.traces += Math.ceil(traceIncrease / 5);
         state.traceLogs.unshift({
-            type: "IP esposto",
-            ip: ip,
+            type: "Origine Esposta",
+            ip: sourceIp,
             date: new Date().toISOString().split('T')[0],
             target: attack.target.name,
-            details: `Attacco fallito (Successo: ${(successRatio * 100).toFixed(0)}%). Score tracciabilità +${traceIncrease}.`
+            details: `La catena di routing non ha retto. L'IP di origine è stato tracciato.`
         });
         if(state.traceLogs.length > 20) state.traceLogs.pop();
-    });
-    
-    state.identity.suspicion = Math.min(100, state.identity.suspicion + Math.ceil(traceIncrease / 2));
+        
+        showNotification(`ATTENZIONE: Il tuo IP di origine (${sourceIp}) è stato tracciato!`, 'error');
+        state.identity.suspicion = Math.min(100, state.identity.suspicion + Math.ceil(traceIncrease / 2));
+    }
 
     if (state.activePage === 'profile') {
         updateProfileData();
     }
 }
+
 
 function resolveAttack(attack, progressPercentage) {
     const req = attack.target.req;
@@ -159,13 +185,10 @@ function resolveAttack(attack, progressPercentage) {
     const totalChecks = checks.length;
     const successRatio = passedChecks / totalChecks;
 
-    // --- NUOVA LOGICA CONTROMISURE ---
     const isDetected = effectiveStats.rl > req.rl;
     if (isDetected && (attack.target.tier >= 3)) {
         showNotification(`Attacco rilevato! ${attack.target.name} sta attuando contromisure!`, 'error');
-        // Qui si potrebbero aggiungere le conseguenze effettive come il cambio IP del target
     }
-    // --- FINE NUOVA LOGICA ---
 
     if (successRatio < 1) {
         handleAttackConsequences(attack, successRatio, effectiveStats);

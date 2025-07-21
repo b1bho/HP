@@ -1,5 +1,5 @@
 // File: js/modules/world.js
-// VERSIONE AGGIORNATA: Corretto il bug che impediva la visualizzazione delle VPN personali come nodi disponibili.
+// VERSIONE AGGIORNATA: La UI della catena di routing ora mostra l'IP di origine corretto.
 
 let selectedNation = null;
 let selectedTarget = null;
@@ -295,28 +295,25 @@ function renderAttackSection(panel) {
     updateRoutingSummaryUI();
     renderRoutingChain();
     panel.querySelector('#launch-attack-button').addEventListener('click', launchAttack);
+    // --- NUOVO EVENT LISTENER ---
+    panel.querySelector('#flow-select').addEventListener('change', renderRoutingChain);
 }
 
-// --- FUNZIONE MODIFICATA ---
 function populateAvailableNodes() {
     const container = document.getElementById('available-nodes');
     if (!container) return;
     container.innerHTML = '';
 
-    // Nodi pubblici
     Object.keys(networkNodeData).forEach(nodeId => {
         container.appendChild(createNodeElement(nodeId, networkNodeData[nodeId]));
     });
 
-    // Servizi VPN personali acquistati
     marketData.networkServices.forEach(item => {
-        // CORREZIONE: Controlla `purchasedServices` invece di `ownedHardware`
         if (state.purchasedServices[item.id]) {
             container.appendChild(createNodeElement(item.id, item));
         }
     });
 
-    // VPN del Clan
     if (state.clan && state.clan.infrastructure.c_vpn) {
         const clanVpnTier = state.clan.infrastructure.c_vpn.tier;
         const vpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier - 1];
@@ -333,7 +330,6 @@ function createNodeElement(nodeId, nodeData) {
     el.draggable = true;
     el.dataset.nodeId = nodeId;
 
-    // Determina l'IP corretto (statico o dinamico dallo stato)
     let ip = nodeData.ipAddress;
     if (state.purchasedServices[nodeId]) {
         ip = state.purchasedServices[nodeId].currentIp;
@@ -406,10 +402,31 @@ function setupDragAndDrop() {
     });
 }
 
+// --- FUNZIONE MODIFICATA ---
 function renderRoutingChain() {
     const slots = document.querySelectorAll('.routing-slot');
-    let ipPath = `<span class="font-mono text-gray-400">${state.identity.realIp}</span> <i class="fas fa-arrow-right text-gray-600 mx-1"></i>`;
-    let lastIp = state.identity.realIp;
+    const ipPathContainer = document.getElementById('routing-ip-path');
+    if (!ipPathContainer) return;
+
+    // Determina l'IP di origine in base al flusso selezionato
+    const flowSelect = document.getElementById('flow-select');
+    let sourceIp = state.identity.realIp;
+    let sourceIpLabel = `<span class="font-mono text-gray-400">${sourceIp}</span>`;
+
+    if (flowSelect && flowSelect.value) {
+        const flowName = flowSelect.value;
+        const flow = state.savedFlows[flowName];
+        if (flow && flow.host && flow.host.type === 'clan') {
+            const server = state.clan.infrastructure.servers.find(s => s.id === flow.host.serverId);
+            if (server) {
+                sourceIp = server.ip;
+                sourceIpLabel = `<span class="font-mono text-green-400" title="Origine: Server Clan #${server.id}">${sourceIp}</span>`;
+            }
+        }
+    }
+    
+    let ipPath = `${sourceIpLabel} <i class="fas fa-arrow-right text-gray-600 mx-1"></i>`;
+    let lastIp = sourceIp;
 
     slots.forEach((slot, index) => {
         const node = currentRoutingChain[index];
@@ -456,10 +473,7 @@ function renderRoutingChain() {
         ipPath += `<span class="font-mono text-red-400">${selectedTarget.ipAddress}</span>`;
     }
 
-    const ipPathContainer = document.getElementById('routing-ip-path');
-    if (ipPathContainer) {
-        ipPathContainer.innerHTML = ipPath;
-    }
+    ipPathContainer.innerHTML = ipPath;
 }
 
 function calculateRoutingModifiers(chain) {

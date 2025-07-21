@@ -1,5 +1,5 @@
 const newsData = [
-    { category: 'Finanza', headline: 'Bitcoin supera la soglia dei 70.000$, analisti divisi sul futuro.' },
+    { category: 'Finanza', headline: 'Bitcoin supera la soglia dei 119.000$, analisti divisi sul futuro.' },
     { category: 'Geopolitica', headline: 'Tensioni in aumento nel Mar Cinese Meridionale dopo esercitazioni militari.' },
     { category: 'Tech', headline: 'Rilasciata la nuova CPU quantistica "Aethelred", promette calcoli 1000 volte più veloci.' },
     { category: 'Cybersecurity', headline: 'Il gruppo di hacker "Lazarus" rivendica un attacco da 100 milioni di dollari a un exchange di criptovalute.' },
@@ -13,4 +13,7 @@ const newsData = [
     { category: 'Tech', headline: 'Lancio del satellite "StarLink 2.0" completato con successo da SpaceX.' },
     { category: 'Cybersecurity', headline: 'Un\'ondata di attacchi ransomware sta colpendo le infrastrutture sanitarie in Europa.' },
     { category: 'Finanza', headline: 'Monero (XMR) vede un aumento del 30% nel valore dopo l\'adozione da parte di un noto dark market.' },
+    { category: 'Geopolitica', headline: 'Israele riconosce la palestina come stato e cede le proprie terre' },
+    { category: 'Tech', headline: 'Avvio delle lavorazioni della AI athene , prima AI sovraumana' },
+    
 ];
