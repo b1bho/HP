@@ -1,5 +1,5 @@
 // File: js/modules/hq.js
-// VERSIONE AGGIORNATA: Corretta la logica di aggiornamento in tempo reale della UI del computer.
+// VERSIONE AGGIORNATA: Aggiunto indicatore di tracciabilità per le VPN personali.
 
 const MAX_NEWS_ITEMS = 5;
 
@@ -38,6 +38,12 @@ function renderHqPage() {
     hardwareHTML += `</ul></div>`;
     statsContainer.innerHTML += hardwareHTML;
 
+    // --- SEZIONE RETE PERSONALE MODIFICATA ---
+    const realIpTraceScore = state.ipTraceability[state.identity.realIp] || 0;
+    let realIpTraceColor = 'trace-low';
+    if (realIpTraceScore > 75) realIpTraceColor = 'trace-high';
+    else if (realIpTraceScore > 40) realIpTraceColor = 'trace-medium';
+
     let networkHTML = `
         <div class="hq-stat-card p-4 rounded-lg">
             <h4 class="text-lg font-bold text-indigo-300 mb-2">Stato Rete Personale</h4>
@@ -45,6 +51,9 @@ function renderHqPage() {
                 <div class="flex justify-between items-center">
                     <span>IP Pubblico (HQ):</span>
                     <span class="font-bold font-mono text-white">${state.identity.realIp}</span>
+                </div>
+                <div class="trace-bar-bg mt-1">
+                    <div class="trace-bar-fill ${realIpTraceColor}" style="width: ${realIpTraceScore}%" title="Tracciabilità: ${realIpTraceScore}%"></div>
                 </div>
             </div>
         </div>`;
@@ -59,14 +68,23 @@ function renderHqPage() {
             const serviceState = state.purchasedServices[serviceId];
             const serviceData = marketData.networkServices.find(s => s.id === serviceId);
             if (serviceState && serviceData) {
+                const ip = serviceState.currentIp;
+                const traceScore = state.ipTraceability[ip] || 0;
+                let traceColor = 'trace-low';
+                if (traceScore > 75) traceColor = 'trace-high';
+                else if (traceScore > 40) traceColor = 'trace-medium';
+
                 networkHTML += `
                     <div>
                         <p class="font-semibold text-gray-300">${serviceData.name}</p>
                         <div class="flex justify-between items-center text-sm mt-1">
-                            <span class="font-mono text-white">${serviceState.currentIp}</span>
+                            <span class="font-mono text-white">${ip}</span>
                             <button class="refresh-ip-btn px-2 py-1 text-xs font-semibold rounded-md bg-purple-600 hover:bg-purple-700" data-service-id="${serviceId}">
                                 <i class="fas fa-sync-alt"></i> Cambia IP (${serviceData.refreshCostXMR} XMR)
                             </button>
+                        </div>
+                        <div class="trace-bar-bg mt-2">
+                            <div class="trace-bar-fill ${traceColor}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
                         </div>
                     </div>`;
             }
@@ -82,6 +100,8 @@ function renderHqPage() {
     });
 }
 
+// (Il resto del file hq.js rimane invariato)
+// ...
 function renderPersonalComputer() {
     const container = document.getElementById('personal-computer-slots');
     if (!container) return;
@@ -142,7 +162,6 @@ function renderPersonalComputer() {
     container.querySelectorAll('.detach-flow-btn').forEach(btn => btn.addEventListener('click', detachFlowFromPersonalComputer));
     container.querySelectorAll('.execute-flow-btn').forEach(btn => btn.addEventListener('click', executeFlowFromPersonalComputer));
 }
-
 function attachFlowToPersonalComputer(event) {
     const slotIndex = parseInt(event.target.dataset.slotIndex);
     const select = event.target.previousElementSibling.querySelector('select');
@@ -154,14 +173,12 @@ function attachFlowToPersonalComputer(event) {
         renderPersonalComputer();
     }
 }
-
 function detachFlowFromPersonalComputer(event) {
     const slotIndex = parseInt(event.target.dataset.slotIndex);
     state.personalComputer.attachedFlows[slotIndex] = { flowName: null, status: 'idle', startTime: 0, duration: 0 };
     saveState();
     renderPersonalComputer();
 }
-
 function executeFlowFromPersonalComputer(event) {
     const slotIndex = parseInt(event.target.dataset.slotIndex);
     const slot = state.personalComputer.attachedFlows[slotIndex];
@@ -184,17 +201,17 @@ function executeFlowFromPersonalComputer(event) {
     
     alert("Questa funzionalità di esecuzione in background è in fase di sviluppo.");
 }
-
 function updatePersonalComputer() {
-    let needsRender = false;
+    let shouldRerender = false;
     
-    // Controlla se c'è almeno un flusso in esecuzione per decidere se ridisegnare
-    const isAnyFlowRunning = state.personalComputer.attachedFlows.some(slot => slot.status === 'running');
+    if (state.personalComputer.attachedFlows.some(slot => slot.status === 'running')) {
+        shouldRerender = true;
+    }
 
     state.personalComputer.attachedFlows.forEach((slot, index) => {
-        if (slot.status === 'running' && Date.now() - slot.startTime >= slot.duration) {
+        if (slot.status === 'running' && (Date.now() - slot.startTime >= slot.duration)) {
             slot.status = 'idle';
-            needsRender = true;
+            shouldRerender = true;
 
             if (index === 0 && !state.isWorldUnlocked) {
                 state.isWorldUnlocked = true;
@@ -203,23 +220,15 @@ function updatePersonalComputer() {
                     .map(t => t.id);
                 alert("Scansione Globale completata! La Pagina del Mondo è ora accessibile. Hai mappato i primi target di basso livello.");
                 switchPage('hq');
+                return;
             }
         }
     });
 
-    // Se un flusso è in esecuzione O se un flusso è appena terminato, ridisegna
-    if (isAnyFlowRunning || needsRender) {
-        if (state.activePage === 'hq') {
-            renderPersonalComputer();
-        }
-    }
-    
-    if (needsRender) {
-        saveState();
+    if (shouldRerender && state.activePage === 'hq') {
+        renderPersonalComputer();
     }
 }
-
-
 function updateNewsTicker() {
     if (state.activePage !== 'hq') return;
     if (state.news.length < MAX_NEWS_ITEMS) {
@@ -236,7 +245,6 @@ function updateNewsTicker() {
     }
     renderNewsTicker();
 }
-
 function renderNewsTicker() {
     const container = document.getElementById('news-ticker-container');
     if (!container) return;
@@ -256,8 +264,6 @@ function renderNewsTicker() {
         </div>
     `).join('');
 }
-
-
 function initHqPage() {
     renderHqPage();
     renderQuestBoard();

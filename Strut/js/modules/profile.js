@@ -1,14 +1,14 @@
 // File: js/modules/profile.js
-// VERSIONE CORRETTA: Aggiunta logica per agganciare/sganciare la VPN del clan ai server.
+// VERSIONE AGGIORNATA: Aggiunto indicatore di tracciabilità per le infrastrutture del clan.
 
 function switchProfileSection(sectionName) {
     state.activeProfileSection = sectionName;
     document.querySelectorAll('.profile-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.profile-sidebar-btn').forEach(b => b.classList.remove('active'));
-
+    
     const sectionEl = document.getElementById(`${sectionName}-section`);
     const buttonEl = document.querySelector(`.profile-sidebar-btn[data-section="${sectionName}"]`);
-
+    
     if(sectionEl) sectionEl.classList.add('active');
     if(buttonEl) buttonEl.classList.add('active');
 
@@ -17,7 +17,7 @@ function switchProfileSection(sectionName) {
     } else if (sectionName === 'data-locker') {
         renderDataLockerSection();
     }
-
+    
     saveState();
 }
 
@@ -69,7 +69,7 @@ function createTalentCard(talentName, talent) {
 function openTalentModal(talentName, talent) {
     const talentModal = document.getElementById('talent-modal');
     talentModal.classList.remove('hidden');
-
+    
     const unlockedLevels = state.unlocked[talentName] || 0;
     let levelsHtml = '';
 
@@ -78,7 +78,7 @@ function openTalentModal(talentName, talent) {
         const isUnlocked = index < unlockedLevels;
         const canStudy = (index === unlockedLevels) && (state.talentPoints >= level.cost);
         const isStudying = state.studying[levelId];
-
+        
         let buttonHtml = '';
         if(isStudying) {
             const speedUpCost = 5;
@@ -174,11 +174,47 @@ function closeModal(modalElement) {
 
 function renderProfileContent() {
     const identitySection = document.getElementById('identity-section');
-    identitySection.innerHTML = `<h2 class="text-3xl font-bold mb-4 branch-title">Stato dell'Identità</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-gray-800 p-4 rounded-lg"><h3 class="text-lg font-semibold mb-2 text-red-400">Dati Esposti</h3><div class="space-y-2 text-sm"><p>Sei stato hackerato: <span id="hacked-status" class="font-bold text-white"></span></p><p>Tracce lasciate: <span id="traces-left" class="font-bold text-white"></span></p></div></div><div class="bg-gray-800 p-4 rounded-lg"><h3 class="text-lg font-semibold mb-2 text-yellow-400">Stato di Indagine</h3><div class="space-y-2 text-sm"><p>Indagato da: <span id="investigated-by" class="font-bold text-white"></span></p><p>Livello di Sospetto:</p><div class="w-full bg-gray-700 rounded-full h-2.5"><div id="suspicion-bar" class="bg-yellow-500 h-2.5 rounded-full"></div></div></div></div></div>`;
-
+    identitySection.innerHTML = `
+        <h2 class="text-3xl font-bold mb-4 branch-title">Stato dell'Identità</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-gray-800 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold mb-2 text-yellow-400">Stato di Indagine</h3>
+                <div class="space-y-2 text-sm">
+                    <p>Indagato da: <span id="investigated-by" class="font-bold text-white"></span></p>
+                    <p>Livello di Sospetto:</p>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                        <div id="suspicion-bar" class="bg-yellow-500 h-2.5 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-lg">
+                 <h3 class="text-lg font-semibold mb-2 text-red-400">Tracce Digitali</h3>
+                 <p class="text-sm">Tracce totali: <span id="traces-left" class="font-bold text-white"></span></p>
+            </div>
+        </div>
+        
+        <div>
+            <h3 class="text-xl font-semibold mb-3 text-gray-300">Log Dettagliato Tracce</h3>
+            <div class="bg-gray-800 p-4 rounded-lg max-h-96 overflow-y-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-700">
+                        <tr>
+                            <th scope="col" class="px-4 py-2">Tipo</th>
+                            <th scope="col" class="px-4 py-2">IP Associato</th>
+                            <th scope="col" class="px-4 py-2">Target</th>
+                            <th scope="col" class="px-4 py-2">Dettagli</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trace-logs-table">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
     const moralitySection = document.getElementById('morality-section');
     moralitySection.innerHTML = `<h2 class="text-3xl font-bold mb-4 branch-title">Sistema di Moralità</h2><div class="bg-gray-800 p-4 rounded-lg"><div class="flex justify-between items-center mb-2 font-bold"><span class="text-blue-400">White Hat</span><span class="text-gray-400">Grey Hat</span><span class="text-red-400">Black Hat</span></div><div class="w-full bg-gradient-to-r from-blue-500 via-gray-500 to-red-500 rounded-full h-4 relative"><div id="morality-indicator" class="absolute top-1/2 w-5 h-5 bg-white rounded-full border-2 border-gray-900" style="transform: translate(-50%, -50%);"></div></div><div class="mt-4 text-center"><p>Allineamento attuale: <span id="morality-status" class="font-bold"></span></p></div><div class="mt-6 flex justify-center gap-4"><button id="action-white-hat" class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-700">Azione White Hat</button><button id="action-black-hat" class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-700">Azione Black Hat</button></div></div>`;
-
+    
     renderTalentTree();
     updateProfileData();
 
@@ -187,15 +223,31 @@ function renderProfileContent() {
 }
 
 function updateProfileData() {
-    const { identity, morality } = state;
-    document.getElementById('hacked-status').textContent = identity.hacked ? 'Sì' : 'No';
+    const { identity, morality, traceLogs } = state;
     document.getElementById('traces-left').textContent = identity.traces;
     document.getElementById('investigated-by').textContent = identity.investigatedBy;
     document.getElementById('suspicion-bar').style.width = `${identity.suspicion}%`;
     document.getElementById('morality-indicator').style.left = `${(morality + 100) / 2}%`;
+    
     if (morality < -33) document.getElementById('morality-status').textContent = 'White Hat';
     else if (morality > 33) document.getElementById('morality-status').textContent = 'Black Hat';
     else document.getElementById('morality-status').textContent = 'Grey Hat';
+
+    const tableBody = document.getElementById('trace-logs-table');
+    if (tableBody) {
+        if (traceLogs.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500">Nessuna traccia significativa rilevata.</td></tr>`;
+        } else {
+            tableBody.innerHTML = traceLogs.map(log => `
+                <tr class="border-b border-gray-700">
+                    <td class="px-4 py-2 font-medium text-red-400">${log.type}</td>
+                    <td class="px-4 py-2 font-mono text-white">${log.ip}</td>
+                    <td class="px-4 py-2 text-gray-300">${log.target}</td>
+                    <td class="px-4 py-2 text-gray-400">${log.details}</td>
+                </tr>
+            `).join('');
+        }
+    }
 }
 
 function updateMorality(amount) {
@@ -338,9 +390,7 @@ function renderClanSection() {
         }
     }
 }
-
 function createClan() { const name = document.getElementById('clan-name-input').value.trim(); const tag = document.getElementById('clan-tag-input').value.trim().toUpperCase(); const costUSD = 20000; const costInBtc = costUSD / state.btcValueInUSD; if (!name || !tag) { alert("Nome e TAG sono obbligatori."); return; } if (tag.length > 4) { alert("Il TAG può avere max 4 caratteri."); return; } if (state.btc < costInBtc) { alert(`Non hai abbastanza BTC. Costo: ~${costInBtc.toFixed(6)} BTC.`); return; } if (confirm(`Creare il clan "${name}" per ~${costInBtc.toFixed(6)} BTC?`)) { state.btc -= costInBtc; state.clan = { id: Date.now() % 1000, name, tag, rank: 1, treasury: 0, level: 1, xp: 0, xpToNextLevel: 500, members: [{ name: state.hackerName, role: 'Leader' }], infrastructure: {}, ecosystem: { security: 0, capacity: 0, total: 0 } }; updateClanEcosystemScore(); updateUI(); renderClanSection(); saveState(); } }
-
 function createDarkMarket() {
     const cost = 500000;
     const costInBtc = cost / state.btcValueInUSD;
@@ -388,7 +438,6 @@ function createDarkMarket() {
         });
     });
 }
-
 function deleteDarkMarket() {
     if (confirm("Sei sicuro di voler smantellare il Dark Market? Questa azione è irreversibile e tutti gli oggetti in vendita andranno persi.")) {
         delete state.clan.darkMarket;
@@ -397,7 +446,6 @@ function deleteDarkMarket() {
         updateUI();
     }
 }
-
 function donateToClan() {
     const amount = parseFloat(document.getElementById('donation-amount').value);
     if (isNaN(amount) || amount <= 0) { alert("Importo non valido."); return; }
@@ -408,8 +456,6 @@ function donateToClan() {
     renderClanSection();
     saveState();
 }
-
-
 function leaveClan() {
     if (confirm("Sei sicuro di voler abbandonare il clan? Questa azione non può essere annullata.")) {
         state.clan = null;
@@ -418,8 +464,6 @@ function leaveClan() {
         saveState();
     }
 }
-
-// --- NUOVE FUNZIONI PER GESTIRE I SERVIZI SUI SERVER ---
 function attachServiceToServer(serverId, serviceId) {
     const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
     if (!server) return;
@@ -434,7 +478,6 @@ function attachServiceToServer(serverId, serviceId) {
     saveState();
     renderClanSection();
 }
-
 function detachServiceFromServer(serverId) {
     const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
     if (server) {
@@ -444,7 +487,7 @@ function detachServiceFromServer(serverId) {
     }
 }
 
-
+// --- FUNZIONE MODIFICATA ---
 function createInfraCard(infraId, infraState) {
     if (infraId === 'servers') {
         const serverData = marketData.clanInfrastructure.clanServer;
@@ -456,7 +499,12 @@ function createInfraCard(infraId, infraState) {
             const card = document.createElement('div');
             card.className = 'infra-card p-4 rounded-lg';
             
-            // Sezione Slot Flussi
+            const ip = server.ip;
+            const traceScore = state.ipTraceability[ip] || 0;
+            let traceColorClass = 'trace-low';
+            if (traceScore > 75) traceColorClass = 'trace-high';
+            else if (traceScore > 40) traceColorClass = 'trace-medium';
+
             let flowSlotsHTML = `<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">
                                  <h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${server.attachedFlows.filter(f => f).length}/${serverData.flowSlots})</h5>`;
             for (let i = 0; i < serverData.flowSlots; i++) {
@@ -471,7 +519,6 @@ function createInfraCard(infraId, infraState) {
             }
             flowSlotsHTML += '</div>';
 
-            // --- NUOVA SEZIONE SLOT SERVIZI ---
             let serviceSlotHTML = '';
             const clanVpn = state.clan.infrastructure.c_vpn;
             if (clanVpn) {
@@ -482,7 +529,6 @@ function createInfraCard(infraId, infraState) {
                                      <h5 class="text-sm font-semibold text-gray-300">Slot Servizio di Rete</h5>`;
 
                 if (server.attachedService === 'c_vpn') {
-                    // La VPN è agganciata a QUESTO server
                     serviceSlotHTML += `
                         <div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md">
                             <span class="text-xs font-mono text-purple-300">${vpnData.name}</span>
@@ -491,13 +537,11 @@ function createInfraCard(infraId, infraState) {
                             </button>
                         </div>`;
                 } else if (vpnAttachedServer) {
-                    // La VPN è agganciata a un ALTRO server
                     serviceSlotHTML += `
                         <div class="bg-gray-800/50 p-2 rounded-md text-center">
                             <span class="text-xs text-gray-500">Slot occupato da VPN (su Server #${vpnAttachedServer.id})</span>
                         </div>`;
                 } else {
-                    // La VPN è disponibile per essere agganciata
                     serviceSlotHTML += `
                         <div class="flex items-center gap-2">
                              <span class="text-xs text-gray-400 flex-grow">Slot Libero</span>
@@ -508,15 +552,22 @@ function createInfraCard(infraId, infraState) {
                 }
                 serviceSlotHTML += `</div>`;
             }
-            // --- FINE NUOVA SEZIONE ---
 
-            card.innerHTML = `<div class="flex justify-between items-center"><h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${serverData.icon}"></i>Server Clan #${server.id}</h4><span class="font-mono text-sm text-green-400">${server.ip}</span></div>${flowSlotsHTML}${serviceSlotHTML}`;
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${serverData.icon}"></i>Server Clan #${server.id}</h4>
+                    <span class="font-mono text-sm text-green-400">${ip}</span>
+                </div>
+                <div class="trace-bar-bg mt-2">
+                    <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
+                </div>
+                ${flowSlotsHTML}${serviceSlotHTML}
+            `;
             container.appendChild(card);
         });
 
         container.querySelectorAll('.attach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => attachFlowToServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex), btn.previousElementSibling.value)));
         container.querySelectorAll('.detach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => detachFlowFromServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex))));
-        // Listener per i nuovi pulsanti
         container.querySelectorAll('.attach-service-btn').forEach(btn => btn.addEventListener('click', () => attachServiceToServer(parseInt(btn.dataset.serverId), btn.dataset.serviceId)));
         container.querySelectorAll('.detach-service-btn').forEach(btn => btn.addEventListener('click', () => detachServiceFromServer(parseInt(btn.dataset.serverId))));
         
@@ -542,16 +593,26 @@ function createInfraCard(infraId, infraState) {
 
     let detailsHTML = '<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">';
     if (infraState.currentIp && currentTier.refreshCostXMR) {
+        const ip = infraState.currentIp;
+        const traceScore = state.ipTraceability[ip] || 0;
+        let traceColorClass = 'trace-low';
+        if (traceScore > 75) traceColorClass = 'trace-high';
+        else if (traceScore > 40) traceColorClass = 'trace-medium';
+
         detailsHTML += `
             <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-300 font-semibold">IP Pubblico:</span>
                 <div class="flex items-center gap-2">
-                    <span class="font-mono text-white">${infraState.currentIp}</span>
+                    <span class="font-mono text-white">${ip}</span>
                     <button class="refresh-ip-btn px-2 py-1 text-xs font-semibold rounded-md bg-purple-600 hover:bg-purple-700" data-service-id="${currentTier.id}" title="Cambia IP (${currentTier.refreshCostXMR} XMR)">
                         <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
-            </div>`;
+            </div>
+            <div class="trace-bar-bg">
+                <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
+            </div>
+        `;
     }
 
     if (currentTier.flowSlots > 0) {
@@ -590,8 +651,6 @@ function createInfraCard(infraId, infraState) {
 
     return card;
 }
-
-
 function upgradeInfra(infraId) {
     const infraData = marketData.clanInfrastructure[infraId];
     const infraState = state.clan.infrastructure[infraId];
@@ -621,7 +680,6 @@ function upgradeInfra(infraId) {
         alert("Fondi insufficienti nella tesoreria del clan.");
     }
 }
-
 function attachFlow(infraId, slotIndex, flowName) {
     if(!flowName) return;
     const infraState = state.clan.infrastructure[infraId];
@@ -633,13 +691,11 @@ function attachFlow(infraId, slotIndex, flowName) {
     saveState();
     renderClanSection();
 }
-
 function detachFlow(infraId, slotIndex) {
     state.clan.infrastructure[infraId].attachedFlows[slotIndex] = null;
     saveState();
     renderClanSection();
 }
-
 function attachFlowToServer(serverId, slotIndex, flowName) {
     if (!flowName) return;
     if (!state.clan || !state.clan.infrastructure.servers) return;
@@ -652,7 +708,6 @@ function attachFlowToServer(serverId, slotIndex, flowName) {
         alert("Slot già occupato o server non trovato.");
     }
 }
-
 function detachFlowFromServer(serverId, slotIndex) {
     if (!state.clan || !state.clan.infrastructure.servers) return;
     const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
@@ -662,7 +717,6 @@ function detachFlowFromServer(serverId, slotIndex) {
         renderClanSection();
     }
 }
-
 function renderDataLockerSection() {
     const container = document.getElementById('data-locker-section');
     if (!container) return;
@@ -755,8 +809,6 @@ function renderDataLockerSection() {
         </div>
     `;
 }
-
-
 function initProfilePage() {
     renderProfileContent();
     document.querySelectorAll('.profile-sidebar-btn').forEach(btn => {

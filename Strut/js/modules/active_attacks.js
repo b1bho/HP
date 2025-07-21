@@ -1,5 +1,5 @@
 // File: js/modules/active_attacks.js
-// VERSIONE CORRETTA: Resa più robusta la funzione resolveAttack per gestire flussi senza host definito.
+// VERSIONE AGGIORNATA: Implementata la logica delle contromisure e delle notifiche.
 
 function updateActiveAttacks() {
     if (state.activePage !== 'world') {
@@ -96,70 +96,49 @@ function renderActiveAttacksPanel() {
     });
 }
 
-function handleTraceback(attack, successRatio) {
-    let traceSuccessful = true;
-    const reversedChain = [...attack.routingChain].reverse();
+function handleAttackConsequences(attack, successRatio, effectiveStats) {
+    const failureSeverity = 1 - successRatio;
+    if (failureSeverity <= 0) return;
 
-    for (const nodeId of reversedChain) {
-        let nodeData = null;
-        if (networkNodeData[nodeId]) {
-            nodeData = networkNodeData[nodeId];
-        } else {
-            const personalNode = marketData.networkServices.find(item => item.id === nodeId);
-            if (personalNode) {
-                nodeData = personalNode;
-            } else if (nodeId.startsWith('clan_vpn_t')) {
-                const tier = parseInt(nodeId.replace('clan_vpn_t', ''));
-                if (state.clan && state.clan.infrastructure.c_vpn && state.clan.infrastructure.c_vpn.tier === tier) {
-                    nodeData = marketData.clanInfrastructure.c_vpn.tiers[tier - 1];
-                }
-            }
+    let traceIncrease = 0;
+    traceIncrease += failureSeverity * 20;
+    traceIncrease += (effectiveStats.rl / 10);
+    traceIncrease -= (effectiveStats.an / 2);
+    traceIncrease += (100 - attack.flowFc) / 10;
+    traceIncrease += (attack.target.tier || 1) * 5;
+    traceIncrease = Math.max(5, Math.ceil(traceIncrease));
+
+    const sourceIp = state.identity.realIp;
+    const allIpsInChain = [sourceIp, ...attack.routingChain.map(nodeId => {
+        const node = networkNodeData[nodeId] || marketData.networkServices.find(s => s.id === nodeId);
+        return node ? node.ipAddress : null;
+    }).filter(ip => ip)];
+
+    allIpsInChain.forEach(ip => {
+        if (!state.ipTraceability[ip]) {
+            state.ipTraceability[ip] = 0;
         }
+        state.ipTraceability[ip] = Math.min(100, state.ipTraceability[ip] + traceIncrease);
 
-        if (!nodeData) {
-            traceSuccessful = false;
-            break;
-        }
+        state.identity.traces += Math.ceil(traceIncrease / 5);
+        state.traceLogs.unshift({
+            type: "IP esposto",
+            ip: ip,
+            date: new Date().toISOString().split('T')[0],
+            target: attack.target.name,
+            details: `Attacco fallito (Successo: ${(successRatio * 100).toFixed(0)}%). Score tracciabilità +${traceIncrease}.`
+        });
+        if(state.traceLogs.length > 20) state.traceLogs.pop();
+    });
+    
+    state.identity.suspicion = Math.min(100, state.identity.suspicion + Math.ceil(traceIncrease / 2));
 
-        const baseTraceChance = 1 / (nodeData.anonymity + 1);
-        const failureModifier = 1 + (1 - successRatio);
-        const finalTraceChance = baseTraceChance * failureModifier;
-
-        if (Math.random() > finalTraceChance) {
-            traceSuccessful = false;
-            break;
-        }
-    }
-
-    if (traceSuccessful) {
-        const suspicionGain = 30 + Math.floor(Math.random() * 20);
-        const tracesGain = 5 + Math.floor(Math.random() * 5);
-        state.identity.suspicion = Math.min(100, state.identity.suspicion + suspicionGain);
-        state.identity.traces += tracesGain;
-        alert(`DISASTRO! Il tuo attacco è stato tracciato fino alla sua origine. Il tuo livello di sospetto è aumentato drasticamente!`);
-        if (state.activePage === 'profile') {
-            updateProfileData();
-        }
+    if (state.activePage === 'profile') {
+        updateProfileData();
     }
 }
 
-
 function resolveAttack(attack, progressPercentage) {
-    for (const nodeId of (attack.routingChain || [])) {
-        let nodeData = networkNodeData[nodeId] || marketData.networkServices.find(i => i.id === nodeId);
-        if (!nodeData && nodeId.startsWith('clan_vpn_t')) {
-             const tier = parseInt(nodeId.replace('clan_vpn_t', ''));
-             nodeData = marketData.clanInfrastructure.c_vpn.tiers[tier - 1];
-        }
-        if (nodeData && Math.random() < nodeData.blockRisk) {
-            alert(`Attacco Fallito! Il nodo '${nodeData.name}' nella tua catena è stato scoperto e bloccato.`);
-            state.identity.traces += 3;
-            state.identity.suspicion += 20;
-            if (state.activePage === 'profile') updateProfileData();
-            return;
-        }
-    }
-
     const req = attack.target.req;
     const stats = attack.flowStats;
     const fcModifier = (attack.flowFc || 100) / 100;
@@ -180,21 +159,20 @@ function resolveAttack(attack, progressPercentage) {
     const totalChecks = checks.length;
     const successRatio = passedChecks / totalChecks;
 
-    handleTraceback(attack, successRatio);
+    // --- NUOVA LOGICA CONTROMISURE ---
+    const isDetected = effectiveStats.rl > req.rl;
+    if (isDetected && (attack.target.tier >= 3)) {
+        showNotification(`Attacco rilevato! ${attack.target.name} sta attuando contromisure!`, 'error');
+        // Qui si potrebbero aggiungere le conseguenze effettive come il cambio IP del target
+    }
+    // --- FINE NUOVA LOGICA ---
+
+    if (successRatio < 1) {
+        handleAttackConsequences(attack, successRatio, effectiveStats);
+    }
 
     if (successRatio < 0.5) {
         alert('Attacco Fallito! Le statistiche del tuo flusso non erano abbastanza alte per superare le difese del bersaglio.');
-        
-        // CORREZIONE: Gestisce il caso in cui attack.host sia undefined
-        const hostType = (attack.host && attack.host.type) ? attack.host.type : 'personal';
-        
-        if (hostType === 'personal') {
-            state.identity.traces += 2;
-            state.identity.suspicion += 15;
-        } else if (state.clan) {
-            state.clan.visibility = (state.clan.visibility || 0) + 10;
-        }
-        if (state.activePage === 'profile') updateProfileData();
         return;
     }
 
@@ -233,7 +211,6 @@ function stopAttack(attackId) {
     const progressPercentage = Math.min(100, (elapsedTime / attack.finalTime) * 100);
 
     state.activeAttacks.splice(attackIndex, 1);
-    
     resolveAttack(attack, progressPercentage);
     
     saveState();
@@ -256,11 +233,8 @@ function skipAttack(attackId) {
 
     state.xmr -= xmrCost;
     updateUI();
-
     state.activeAttacks.splice(attackIndex, 1);
-
     resolveAttack(attack, 100);
-
     saveState();
     updateActiveAttacks();
 }

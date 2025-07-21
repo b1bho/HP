@@ -1,5 +1,5 @@
 // File: js/modules/world.js
-// VERSIONE AGGIORNATA: Aggiunge la FC del flusso all'oggetto dell'attacco al momento del lancio.
+// VERSIONE AGGIORNATA: Corretto il bug che impediva la visualizzazione delle VPN personali come nodi disponibili.
 
 let selectedNation = null;
 let selectedTarget = null;
@@ -297,26 +297,31 @@ function renderAttackSection(panel) {
     panel.querySelector('#launch-attack-button').addEventListener('click', launchAttack);
 }
 
+// --- FUNZIONE MODIFICATA ---
 function populateAvailableNodes() {
     const container = document.getElementById('available-nodes');
     if (!container) return;
     container.innerHTML = '';
 
+    // Nodi pubblici
     Object.keys(networkNodeData).forEach(nodeId => {
         container.appendChild(createNodeElement(nodeId, networkNodeData[nodeId]));
     });
 
+    // Servizi VPN personali acquistati
     marketData.networkServices.forEach(item => {
-        if (state.ownedHardware[item.id]) {
+        // CORREZIONE: Controlla `purchasedServices` invece di `ownedHardware`
+        if (state.purchasedServices[item.id]) {
             container.appendChild(createNodeElement(item.id, item));
         }
     });
 
+    // VPN del Clan
     if (state.clan && state.clan.infrastructure.c_vpn) {
         const clanVpnTier = state.clan.infrastructure.c_vpn.tier;
         const vpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier - 1];
         if (vpnData) {
-            const clanVpnNodeId = `clan_vpn_t${clanVpnTier}`; 
+            const clanVpnNodeId = `c_vpn_t${clanVpnTier}`; 
             container.appendChild(createNodeElement(clanVpnNodeId, vpnData));
         }
     }
@@ -327,12 +332,31 @@ function createNodeElement(nodeId, nodeData) {
     el.className = 'routing-node p-2 rounded-md cursor-grab';
     el.draggable = true;
     el.dataset.nodeId = nodeId;
+
+    // Determina l'IP corretto (statico o dinamico dallo stato)
+    let ip = nodeData.ipAddress;
+    if (state.purchasedServices[nodeId]) {
+        ip = state.purchasedServices[nodeId].currentIp;
+    } else if (nodeId.startsWith('c_vpn_t') && state.clan && state.clan.infrastructure.c_vpn) {
+        ip = state.clan.infrastructure.c_vpn.currentIp;
+    }
+
+    const traceScore = state.ipTraceability[ip] || 0;
+    
+    let traceColorClass = 'trace-low';
+    if (traceScore > 75) traceColorClass = 'trace-high';
+    else if (traceScore > 40) traceColorClass = 'trace-medium';
+
     el.innerHTML = `
         <div class="flex justify-between items-center">
             <p class="font-bold text-sm">${nodeData.name}</p>
-            <span class="font-mono text-xs text-gray-500">${nodeData.ipAddress || ''}</span>
+            <span class="font-mono text-xs text-gray-500">${ip}</span>
         </div>
-        <p class="text-xs text-gray-400">${nodeData.type} - ${nodeData.location}</p>`;
+        <p class="text-xs text-gray-400">${nodeData.type} - ${nodeData.location}</p>
+        <div class="trace-bar-bg mt-2">
+            <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
+        </div>
+    `;
     el.addEventListener('dragstart', e => {
         e.dataTransfer.setData('text/plain', nodeId);
         e.target.classList.add('opacity-50');
@@ -359,8 +383,8 @@ function setupDragAndDrop() {
                 const personalNode = marketData.networkServices.find(item => item.id === nodeId);
                 if (personalNode) {
                     nodeData = personalNode;
-                } else if (nodeId.startsWith('clan_vpn_t')) {
-                    const tier = parseInt(nodeId.replace('clan_vpn_t', ''));
+                } else if (nodeId.startsWith('c_vpn_t')) {
+                    const tier = parseInt(nodeId.replace('c_vpn_t', ''));
                     if (state.clan && state.clan.infrastructure.c_vpn && state.clan.infrastructure.c_vpn.tier === tier) {
                         nodeData = marketData.clanInfrastructure.c_vpn.tiers[tier - 1];
                     }
@@ -390,13 +414,28 @@ function renderRoutingChain() {
     slots.forEach((slot, index) => {
         const node = currentRoutingChain[index];
         if (node) {
+            let ip = node.data.ipAddress;
+            if (state.purchasedServices[node.id]) {
+                ip = state.purchasedServices[node.id].currentIp;
+            } else if (node.id.startsWith('c_vpn_t') && state.clan && state.clan.infrastructure.c_vpn) {
+                ip = state.clan.infrastructure.c_vpn.currentIp;
+            }
+
+            const traceScore = state.ipTraceability[ip] || 0;
+            let traceColorClass = 'trace-low';
+            if (traceScore > 75) traceColorClass = 'trace-high';
+            else if (traceScore > 40) traceColorClass = 'trace-medium';
+
             slot.className = 'routing-slot occupied p-2 rounded-md relative';
             slot.innerHTML = `
                 <div class="flex justify-between items-center">
                     <p class="font-bold text-sm text-white">${node.data.name}</p>
-                    <span class="font-mono text-xs text-gray-400">${node.data.ipAddress || ''}</span>
+                    <span class="font-mono text-xs text-gray-400">${ip}</span>
                 </div>
                 <p class="text-xs text-gray-400">${node.data.type} - ${node.data.location}</p>
+                <div class="trace-bar-bg mt-2">
+                    <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
+                </div>
                 <button class="absolute top-1 right-1 text-red-500 hover:text-red-400 text-xs" data-slot-index="${index}">&times;</button>
             `;
             slot.querySelector('button').addEventListener('click', (e) => {
@@ -405,7 +444,7 @@ function renderRoutingChain() {
                 renderRoutingChain();
                 updateRoutingSummaryUI();
             });
-            lastIp = node.data.ipAddress || '';
+            lastIp = ip;
             ipPath += `<span class="font-mono text-indigo-300">${lastIp}</span> <i class="fas fa-arrow-right text-gray-600 mx-1"></i>`;
         } else {
             slot.className = 'routing-slot border-2 border-dashed border-gray-600 rounded-lg p-2 text-center text-gray-500 text-xs';
@@ -496,7 +535,6 @@ function launchAttack() {
         flowName: flowName,
         host: flow.host,
         flowStats: finalFlowStats,
-        // CORREZIONE: Aggiunge la FC del flusso all'oggetto dell'attacco
         flowFc: flow.fc,
         routingChain: activeNodes.map(n => n.id)
     };

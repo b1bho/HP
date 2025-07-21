@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE AGGIORNATA: Corretta la logica di refresh IP per trovare correttamente il firewall.
+// VERSIONE AGGIORNATA: Aggiunta la funzione globale per mostrare le notifiche.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -22,6 +22,8 @@ let state = {
         realIp: "87.15.22.113",
         isIpDynamic: true,
     },
+    ipTraceability: {},
+    traceLogs: [],
     isWorldUnlocked: false,
     discoveredTargets: [],
     personalComputer: {
@@ -43,7 +45,7 @@ let state = {
     activePage: 'hq',
     activeProfileSection: 'talents',
     savedFlows: {},
-    permanentFlows: {}, // Per i flussi che non vengono resettati
+    permanentFlows: {},
     ownedHardware: {},
     purchasedServices: {},
     clan: null,
@@ -74,6 +76,35 @@ const xmrBalanceEl = document.getElementById('xmr-balance');
 const talentPointsEl = document.getElementById('talent-points');
 const resetButton = document.getElementById('reset-button');
 const navButtons = document.querySelectorAll('.nav-btn');
+
+// --- NUOVA FUNZIONE NOTIFICHE ---
+function showNotification(message, type = 'info') {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notif = document.createElement('div');
+    notif.className = `notification ${type}`;
+    
+    let icon = 'fa-info-circle';
+    if (type === 'error') icon = 'fa-exclamation-triangle';
+    if (type === 'success') icon = 'fa-check-circle';
+
+    notif.innerHTML = `
+        <div class="flex items-center">
+            <i class="fas ${icon} mr-3 text-lg"></i>
+            <p class="text-sm">${message}</p>
+        </div>
+    `;
+
+    container.appendChild(notif);
+
+    // Rimuovi la notifica dopo 5 secondi
+    setTimeout(() => {
+        notif.remove();
+    }, 5000);
+}
+// --- FINE NUOVA FUNZIONE ---
+
 
 function saveState() {
     const { permanentFlows, ...gameState } = state;
@@ -113,6 +144,8 @@ function resetState() {
     }
 }
 
+// (Il resto del file main.js rimane invariato)
+// ... [TUTTO IL RESTO DEL CODICE DI main.js] ...
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
@@ -136,8 +169,6 @@ function deepMerge(target, source) {
 function generateRandomIp() {
     return `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 }
-
-// --- FUNZIONE CORRETTA ---
 function refreshVpnIp(serviceId) {
     let serviceData, serviceState;
     let isClanService = false;
@@ -151,7 +182,6 @@ function refreshVpnIp(serviceId) {
         balance = state.xmr;
     } 
     else if (state.clan && state.clan.infrastructure) {
-        // Cerca nella VPN del clan
         if (state.clan.infrastructure.c_vpn) {
             const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
             const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
@@ -163,7 +193,6 @@ function refreshVpnIp(serviceId) {
                 currency = 'BTC';
             }
         }
-        // Cerca nel Firewall del clan (SEPARATAMENTE, solo se non già trovato)
         if (!serviceData && state.clan.infrastructure.c_firewall) {
             const clanFirewallTier = state.clan.infrastructure.c_firewall.tier - 1;
             const clanFirewallData = marketData.clanInfrastructure.c_firewall.tiers[clanFirewallTier];
@@ -197,14 +226,16 @@ function refreshVpnIp(serviceId) {
         } else {
             state.xmr -= finalCost;
         }
+        
+        delete state.ipTraceability[serviceState.currentIp];
         serviceState.currentIp = generateRandomIp();
+        
         saveState();
         updateUI();
         if (state.activePage === 'hq') renderHqPage();
         if (state.activePage === 'profile' && state.activeProfileSection === 'clan') renderClanSection();
     }
 }
-
 async function updateBTCValue() {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
