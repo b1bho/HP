@@ -1,5 +1,5 @@
 // File: js/modules/editor.js
-// VERSIONE AGGIORNATA: Aggiunta la logica per salvare, caricare, eliminare e visualizzare i flussi permanenti.
+// VERSIONE AGGIORNATA: Corretto il salvataggio e caricamento dei flussi per includere sempre l'host.
 
 let currentObjective = 'none';
 let currentFc = { score: 0, hints: [] };
@@ -356,14 +356,11 @@ function populateHostSelector() {
     }
 }
 
-// --- FUNZIONI DI SALVATAGGIO/CARICAMENTO MODIFICATE ---
-
 function populateSavedFlowsDropdown() {
     const dropdown = document.getElementById('saved-flows-dropdown');
     if (!dropdown) return;
     dropdown.innerHTML = '<option value="">Carica un Flusso...</option>';
 
-    // Gruppo per i flussi di sessione
     if (Object.keys(state.savedFlows).length > 0) {
         const sessionGroup = document.createElement('optgroup');
         sessionGroup.label = 'Flussi di Sessione';
@@ -375,7 +372,6 @@ function populateSavedFlowsDropdown() {
         dropdown.appendChild(sessionGroup);
     }
 
-    // Gruppo per i flussi permanenti
     if (Object.keys(state.permanentFlows).length > 0) {
         const permanentGroup = document.createElement('optgroup');
         permanentGroup.label = 'Flussi Permanenti';
@@ -388,18 +384,33 @@ function populateSavedFlowsDropdown() {
     }
 }
 
+// --- FUNZIONE CORRETTA ---
 function getFlowData() {
     const canvas = document.getElementById('canvas');
+    const hostSelect = document.getElementById('flow-host-select');
     const nodesOnCanvas = Array.from(canvas.querySelectorAll('.canvas-node'));
     const nodesData = nodesOnCanvas.map(n => ({ id: n.id, name: n.dataset.blockName, x: n.offsetLeft, y: n.offsetTop }));
     const linesData = lines.map(l => ({ start: l.start.id, end: l.end.id }));
+
+    const hostValue = hostSelect.value;
+    let hostData = {};
+    if (hostValue === 'personal') {
+        hostData = { type: 'personal', name: 'Computer Personale' };
+    } else if (hostValue.startsWith('clan-')) {
+        const serverId = parseInt(hostValue.replace('clan-', ''));
+        const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
+        if (server) {
+            hostData = { type: 'clan', serverId: server.id, name: `Server #${server.id}` };
+        }
+    }
     
     return {
         nodes: nodesData,
         lines: linesData,
         stats: calculateFlowStats(nodesOnCanvas),
         objective: currentObjective,
-        fc: currentFc.score
+        fc: currentFc.score,
+        host: hostData // Assicura che l'host sia sempre incluso
     };
 }
 
@@ -420,11 +431,12 @@ function saveFlowPermanently() {
     if (!flowName) { alert('Inserisci un nome per il flusso.'); return; }
 
     state.permanentFlows[flowName] = getFlowData();
-    saveState(); // saveState ora gestisce entrambi i tipi di salvataggio
+    saveState();
     populateSavedFlowsDropdown();
     alert(`Flusso permanente "${flowName}" salvato! Non verrà eliminato con il reset.`);
 }
 
+// --- FUNZIONE CORRETTA ---
 function loadFlow() {
     const dropdown = document.getElementById('saved-flows-dropdown');
     const selectedOption = dropdown.options[dropdown.selectedIndex];
@@ -451,6 +463,18 @@ function loadFlow() {
     }
     document.getElementById('flow-name-input').value = flowName;
     document.getElementById('flow-objective-select').value = flowData.objective || 'none';
+    
+    const hostSelect = document.getElementById('flow-host-select');
+    if (flowData.host) {
+        if (flowData.host.type === 'personal') {
+            hostSelect.value = 'personal';
+        } else if (flowData.host.type === 'clan') {
+            hostSelect.value = `clan-${flowData.host.serverId}`;
+        }
+    } else {
+        hostSelect.value = 'personal'; // Default se l'host non è definito
+    }
+
     currentObjective = flowData.objective || 'none';
     validateFlow();
     updateCurrentFlowStatsUI();
@@ -486,9 +510,8 @@ function initEditorPage() {
     updateCurrentFlowStatsUI();
     validateFlow();
 
-    // Aggiungi listener ai pulsanti
     document.getElementById('save-flow-button').addEventListener('click', saveFlow);
-    document.getElementById('save-flow-perm-button').addEventListener('click', saveFlowPermanently); // NUOVO
+    document.getElementById('save-flow-perm-button').addEventListener('click', saveFlowPermanently);
     document.getElementById('load-flow-button').addEventListener('click', loadFlow);
     document.getElementById('delete-flow-button').addEventListener('click', deleteFlow);
     document.getElementById('clear-connections-button').addEventListener('click', clearCanvas);

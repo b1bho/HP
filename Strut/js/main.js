@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE AGGIORNATA: Corretta l'inizializzazione degli slot del computer per renderli indipendenti.
+// VERSIONE AGGIORNATA: Corretta la logica di refresh IP per trovare correttamente il firewall.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -26,7 +26,6 @@ let state = {
     discoveredTargets: [],
     personalComputer: {
         slots: 5,
-        // CORREZIONE: Crea 5 oggetti unici invece di 5 riferimenti allo stesso oggetto.
         attachedFlows: Array.from({ length: 5 }, () => ({ flowName: null, status: 'idle', startTime: 0, duration: 0 })),
     },
     storage: {
@@ -76,8 +75,6 @@ const talentPointsEl = document.getElementById('talent-points');
 const resetButton = document.getElementById('reset-button');
 const navButtons = document.querySelectorAll('.nav-btn');
 
-// --- FUNZIONI DI GESTIONE STATO MODIFICATE ---
-
 function saveState() {
     const { permanentFlows, ...gameState } = state;
     localStorage.setItem('hackerAppState', JSON.stringify(gameState));
@@ -116,7 +113,6 @@ function resetState() {
     }
 }
 
-// (Il resto del file main.js rimane invariato)
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
@@ -140,6 +136,8 @@ function deepMerge(target, source) {
 function generateRandomIp() {
     return `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 }
+
+// --- FUNZIONE CORRETTA ---
 function refreshVpnIp(serviceId) {
     let serviceData, serviceState;
     let isClanService = false;
@@ -152,26 +150,30 @@ function refreshVpnIp(serviceId) {
         serviceState = state.purchasedServices[serviceId];
         balance = state.xmr;
     } 
-    else if (state.clan && state.clan.infrastructure.c_vpn) {
-        const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
-        const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
-        if (clanVpnData && clanVpnData.id === serviceId) {
-            serviceData = clanVpnData;
-            serviceState = state.clan.infrastructure.c_vpn;
-            isClanService = true;
-            balance = state.clan.treasury;
-            currency = 'BTC';
+    else if (state.clan && state.clan.infrastructure) {
+        // Cerca nella VPN del clan
+        if (state.clan.infrastructure.c_vpn) {
+            const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
+            const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
+            if (clanVpnData && clanVpnData.id === serviceId) {
+                serviceData = clanVpnData;
+                serviceState = state.clan.infrastructure.c_vpn;
+                isClanService = true;
+                balance = state.clan.treasury;
+                currency = 'BTC';
+            }
         }
-    }
-    else if (state.clan && state.clan.infrastructure.c_firewall) {
-        const clanFirewallTier = state.clan.infrastructure.c_firewall.tier - 1;
-        const clanFirewallData = marketData.clanInfrastructure.c_firewall.tiers[clanFirewallTier];
-        if (clanFirewallData && clanFirewallData.id === serviceId) {
-            serviceData = clanFirewallData;
-            serviceState = state.clan.infrastructure.c_firewall;
-            isClanService = true;
-            balance = state.clan.treasury;
-            currency = 'BTC';
+        // Cerca nel Firewall del clan (SEPARATAMENTE, solo se non già trovato)
+        if (!serviceData && state.clan.infrastructure.c_firewall) {
+            const clanFirewallTier = state.clan.infrastructure.c_firewall.tier - 1;
+            const clanFirewallData = marketData.clanInfrastructure.c_firewall.tiers[clanFirewallTier];
+            if (clanFirewallData && clanFirewallData.id === serviceId) {
+                serviceData = clanFirewallData;
+                serviceState = state.clan.infrastructure.c_firewall;
+                isClanService = true;
+                balance = state.clan.treasury;
+                currency = 'BTC';
+            }
         }
     }
 
@@ -202,6 +204,7 @@ function refreshVpnIp(serviceId) {
         if (state.activePage === 'profile' && state.activeProfileSection === 'clan') renderClanSection();
     }
 }
+
 async function updateBTCValue() {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');

@@ -1,3 +1,6 @@
+// File: js/modules/active_attacks.js
+// VERSIONE CORRETTA: Resa più robusta la funzione resolveAttack per gestire flussi senza host definito.
+
 function updateActiveAttacks() {
     if (state.activePage !== 'world') {
         const container = document.getElementById('active-attacks-grid-container');
@@ -93,17 +96,11 @@ function renderActiveAttacksPanel() {
     });
 }
 
-/**
- * NUOVA FUNZIONE (FASE 3): Simula il tracciamento dell'IP dopo un attacco.
- * @param {object} attack - L'oggetto dell'attacco completato.
- * @param {number} successRatio - Il rapporto di successo dell'attacco (da 0 a 1).
- */
 function handleTraceback(attack, successRatio) {
     let traceSuccessful = true;
     const reversedChain = [...attack.routingChain].reverse();
 
     for (const nodeId of reversedChain) {
-        // Trova i dati del nodo da tutte le possibili fonti
         let nodeData = null;
         if (networkNodeData[nodeId]) {
             nodeData = networkNodeData[nodeId];
@@ -121,25 +118,20 @@ function handleTraceback(attack, successRatio) {
 
         if (!nodeData) {
             traceSuccessful = false;
-            break; // Nodo sconosciuto, la traccia si interrompe
+            break;
         }
 
-        // La probabilità di tracciare un nodo è inversamente proporzionale alla sua anonimità
-        // e aumenta se l'attacco è fallito.
         const baseTraceChance = 1 / (nodeData.anonymity + 1);
-        const failureModifier = 1 + (1 - successRatio); // Aumenta la probabilità fino al doppio se l'attacco è un fallimento totale
+        const failureModifier = 1 + (1 - successRatio);
         const finalTraceChance = baseTraceChance * failureModifier;
 
         if (Math.random() > finalTraceChance) {
-            // La traccia fallisce, l'anonimato del nodo ha retto
             traceSuccessful = false;
             break;
         }
-        // Se il loop continua, la traccia è riuscita a superare questo nodo
     }
 
     if (traceSuccessful) {
-        // La traccia ha superato l'intera catena ed è arrivata al giocatore!
         const suspicionGain = 30 + Math.floor(Math.random() * 20);
         const tracesGain = 5 + Math.floor(Math.random() * 5);
         state.identity.suspicion = Math.min(100, state.identity.suspicion + suspicionGain);
@@ -188,12 +180,15 @@ function resolveAttack(attack, progressPercentage) {
     const totalChecks = checks.length;
     const successRatio = passedChecks / totalChecks;
 
-    // Esegui il controllo di tracciamento dopo ogni attacco
     handleTraceback(attack, successRatio);
 
     if (successRatio < 0.5) {
         alert('Attacco Fallito! Le statistiche del tuo flusso non erano abbastanza alte per superare le difese del bersaglio.');
-        if (attack.host.type === 'personal') {
+        
+        // CORREZIONE: Gestisce il caso in cui attack.host sia undefined
+        const hostType = (attack.host && attack.host.type) ? attack.host.type : 'personal';
+        
+        if (hostType === 'personal') {
             state.identity.traces += 2;
             state.identity.suspicion += 15;
         } else if (state.clan) {
@@ -205,7 +200,7 @@ function resolveAttack(attack, progressPercentage) {
 
     const xpGain = Math.floor(((req.rc * 10) + (req.lcs * 5) + (req.an * 5) + attack.target.sensitivity * 2) * successRatio * (progressPercentage / 100));
     addXp(xpGain, 'player');
-    if (attack.host.type === 'clan' && state.clan) {
+    if (attack.host && attack.host.type === 'clan' && state.clan) {
         addXp(xpGain, 'clan');
     }
 
@@ -238,10 +233,11 @@ function stopAttack(attackId) {
     const progressPercentage = Math.min(100, (elapsedTime / attack.finalTime) * 100);
 
     state.activeAttacks.splice(attackIndex, 1);
-    saveState();
-    updateActiveAttacks();
     
     resolveAttack(attack, progressPercentage);
+    
+    saveState();
+    updateActiveAttacks();
 }
 
 function skipAttack(attackId) {
@@ -262,8 +258,9 @@ function skipAttack(attackId) {
     updateUI();
 
     state.activeAttacks.splice(attackIndex, 1);
-    saveState();
-    updateActiveAttacks();
 
     resolveAttack(attack, 100);
+
+    saveState();
+    updateActiveAttacks();
 }

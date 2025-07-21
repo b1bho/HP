@@ -1,11 +1,10 @@
 // File: js/modules/world.js
-// VERSIONE CORRETTA: Ripristinate le animazioni degli attacchi globali e risolto il problema di disallineamento iniziale.
+// VERSIONE AGGIORNATA: Aggiunge la FC del flusso all'oggetto dell'attacco al momento del lancio.
 
 let selectedNation = null;
 let selectedTarget = null;
 let currentRoutingChain = [];
 
-// Funzione per le statistiche finte dei pannelli laterali
 function renderLiveStats() {
     const leftPanel = document.getElementById('left-stats-panel');
     const rightPanel = document.getElementById('right-stats-panel');
@@ -99,7 +98,6 @@ function initGlobe() {
         }
     });
 
-    // --- LOGICA ANIMAZIONI ATTACCHI RIPRISTINATA ---
     let activeAttacks = [];
     const attackInterval = setInterval(() => {
         if (activeAttacks.length < 20) { 
@@ -134,9 +132,7 @@ function initGlobe() {
         });
         renderer.render(scene, camera);
     }
-    // --- FINE LOGICA ANIMAZIONI ---
 
-    // --- FIX PER IL DISALLINEAMENTO ---
     function onWindowResize() {
         if (!globeContainer) return;
         camera.aspect = globeContainer.clientWidth / globeContainer.clientHeight;
@@ -145,13 +141,11 @@ function initGlobe() {
     }
     window.addEventListener('resize', onWindowResize);
     
-    // Chiamiamo il resize dopo un breve ritardo per assicurarci che il layout sia stabile
     setTimeout(() => {
         onWindowResize();
-        animate(); // Avviamo l'animazione solo dopo il primo resize
+        animate();
     }, 150); 
     
-    // --- STATISTICHE LIVE RIPRISTINATE ---
     renderLiveStats();
     const statsInterval = setInterval(renderLiveStats, 2000);
 }
@@ -502,6 +496,8 @@ function launchAttack() {
         flowName: flowName,
         host: flow.host,
         flowStats: finalFlowStats,
+        // CORREZIONE: Aggiunge la FC del flusso all'oggetto dell'attacco
+        flowFc: flow.fc,
         routingChain: activeNodes.map(n => n.id)
     };
 
