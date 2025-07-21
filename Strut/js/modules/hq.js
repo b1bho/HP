@@ -1,5 +1,5 @@
 // File: js/modules/hq.js
-// VERSIONE AGGIORNATA: Mostra i servizi di rete acquistati e permette il refresh dell'IP.
+// VERSIONE AGGIORNATA: Aggiunta la gestione del computer personale e l'esecuzione dei flussi.
 
 const MAX_NEWS_ITEMS = 5;
 
@@ -38,7 +38,6 @@ function renderHqPage() {
     hardwareHTML += `</ul></div>`;
     statsContainer.innerHTML += hardwareHTML;
 
-    // --- SEZIONE RETE PERSONALE ---
     let networkHTML = `
         <div class="hq-stat-card p-4 rounded-lg">
             <h4 class="text-lg font-bold text-indigo-300 mb-2">Stato Rete Personale</h4>
@@ -47,21 +46,15 @@ function renderHqPage() {
                     <span>IP Pubblico (HQ):</span>
                     <span class="font-bold font-mono text-white">${state.identity.realIp}</span>
                 </div>
-                <div class="flex justify-between items-center">
-                    <span>Stato:</span>
-                    <span class="font-bold ${state.identity.isIpDynamic ? 'text-yellow-400' : 'text-green-400'}">${state.identity.isIpDynamic ? 'Dinamico' : 'Statico'}</span>
-                </div>
             </div>
         </div>`;
 
-    // --- NUOVO: Mostra i servizi VPN acquistati ---
     const purchasedVpns = Object.keys(state.purchasedServices);
     if (purchasedVpns.length > 0) {
         networkHTML += `
             <div class="hq-stat-card p-4 rounded-lg">
                 <h4 class="text-lg font-bold text-indigo-300 mb-2">Servizi VPN Attivi</h4>
                 <div class="space-y-3">`;
-
         purchasedVpns.forEach(serviceId => {
             const serviceState = state.purchasedServices[serviceId];
             const serviceData = marketData.networkServices.find(s => s.id === serviceId);
@@ -78,13 +71,10 @@ function renderHqPage() {
                     </div>`;
             }
         });
-
         networkHTML += `</div></div>`;
     }
-    
     statsContainer.innerHTML += networkHTML;
 
-    // Aggiungi listener ai nuovi pulsanti
     statsContainer.querySelectorAll('.refresh-ip-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             refreshVpnIp(e.target.closest('button').dataset.serviceId);
@@ -92,21 +82,159 @@ function renderHqPage() {
     });
 }
 
+// --- NUOVE FUNZIONI PER IL COMPUTER PERSONALE ---
+
+function renderPersonalComputer() {
+    const container = document.getElementById('personal-computer-slots');
+    if (!container) return;
+
+    let slotsHTML = '';
+    const flowOptions = Object.keys(state.savedFlows)
+        .map(name => `<option value="${name}">${name}</option>`)
+        .join('');
+
+    state.personalComputer.attachedFlows.forEach((slot, index) => {
+        let slotContent = '';
+        const isGlobalScanSlot = index === 0 && !state.isWorldUnlocked;
+
+        if (slot.flowName) {
+            const flow = state.savedFlows[slot.flowName];
+            const statusColor = slot.status === 'running' ? 'text-yellow-400' : 'text-green-400';
+            const progress = slot.status === 'running' ? Math.min(100, ((Date.now() - slot.startTime) / slot.duration) * 100) : 0;
+
+            slotContent = `
+                <div class="flex-grow">
+                    <p class="font-bold text-white">${slot.flowName}</p>
+                    <p class="text-xs ${statusColor} capitalize">${slot.status}</p>
+                    ${slot.status === 'running' ? `
+                        <div class="w-full bg-gray-700 rounded-full h-1.5 mt-1">
+                            <div class="bg-yellow-500 h-1.5 rounded-full" style="width: ${progress}%"></div>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button class="execute-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-green-600 hover:bg-green-700 ${slot.status === 'running' ? 'hidden' : ''}" data-slot-index="${index}">Esegui</button>
+                    <button class="detach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-red-600 hover:bg-red-700" data-slot-index="${index}">Sgancia</button>
+                </div>
+            `;
+        } else {
+            slotContent = `
+                <div class="flex-grow">
+                    <p class="text-gray-400">${isGlobalScanSlot ? 'Slot Scansione Globale' : `Slot Libero ${index + 1}`}</p>
+                    <select class="flow-select-personal w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs mt-1">
+                        <option value="">Seleziona Flusso...</option>
+                        ${flowOptions}
+                    </select>
+                </div>
+                <button class="attach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 self-end" data-slot-index="${index}">Aggancia</button>
+            `;
+        }
+
+        slotsHTML += `
+            <div class="hq-stat-card p-3 rounded-lg flex items-center gap-3 ${isGlobalScanSlot ? 'border-l-4 border-yellow-400' : ''}">
+                <i class="fas fa-microchip text-2xl text-gray-500"></i>
+                ${slotContent}
+            </div>
+        `;
+    });
+
+    container.innerHTML = slotsHTML;
+
+    // Aggiungi event listener
+    container.querySelectorAll('.attach-flow-btn').forEach(btn => btn.addEventListener('click', attachFlowToPersonalComputer));
+    container.querySelectorAll('.detach-flow-btn').forEach(btn => btn.addEventListener('click', detachFlowFromPersonalComputer));
+    container.querySelectorAll('.execute-flow-btn').forEach(btn => btn.addEventListener('click', executeFlowFromPersonalComputer));
+}
+
+function attachFlowToPersonalComputer(event) {
+    const slotIndex = parseInt(event.target.dataset.slotIndex);
+    const select = event.target.previousElementSibling.querySelector('select');
+    const flowName = select.value;
+
+    if (flowName && state.savedFlows[flowName]) {
+        state.personalComputer.attachedFlows[slotIndex].flowName = flowName;
+        saveState();
+        renderPersonalComputer();
+    }
+}
+
+function detachFlowFromPersonalComputer(event) {
+    const slotIndex = parseInt(event.target.dataset.slotIndex);
+    state.personalComputer.attachedFlows[slotIndex] = { flowName: null, status: 'idle', startTime: 0, duration: 0 };
+    saveState();
+    renderPersonalComputer();
+}
+
+function executeFlowFromPersonalComputer(event) {
+    const slotIndex = parseInt(event.target.dataset.slotIndex);
+    const slot = state.personalComputer.attachedFlows[slotIndex];
+    const flow = state.savedFlows[slot.flowName];
+
+    if (!flow) return;
+
+    // Logica speciale per la Scansione Globale
+    if (slotIndex === 0 && !state.isWorldUnlocked) {
+        if (flow.objective === 'reconnaissance' && flow.fc >= 80) {
+            slot.status = 'running';
+            slot.startTime = Date.now();
+            slot.duration = 30000; // 30 secondi per la scansione
+            saveState();
+            renderPersonalComputer();
+        } else {
+            alert("Flusso non valido per la Scansione Globale. Assicurati che l'obiettivo sia 'Ricognizione / Intelligence' e che la Completezza Funzionale (FC) sia almeno dell'80%.");
+        }
+        return;
+    }
+
+    // (Qui andrà la logica per altri tipi di flussi in background, se necessaria)
+    alert("Questa funzionalità di esecuzione in background è in fase di sviluppo.");
+}
+
+function updatePersonalComputer() {
+    let needsRender = false;
+    state.personalComputer.attachedFlows.forEach((slot, index) => {
+        if (slot.status === 'running' && Date.now() - slot.startTime >= slot.duration) {
+            // Flusso completato
+            slot.status = 'idle';
+            needsRender = true;
+
+            // Logica di completamento per la Scansione Globale
+            if (index === 0 && !state.isWorldUnlocked) {
+                state.isWorldUnlocked = true;
+                // Sblocca tutti i target di Tier 1
+                state.discoveredTargets = Object.values(worldTargets)
+                    .filter(t => t.tier === 1)
+                    .map(t => t.id);
+                alert("Scansione Globale completata! La Pagina del Mondo è ora accessibile. Hai mappato i primi target di basso livello.");
+                // Ricarica la pagina HQ per aggiornare lo stato
+                switchPage('hq');
+            }
+            // (Aggiungere qui la logica per altri flussi)
+        }
+    });
+
+    if (needsRender) {
+        saveState();
+        if (state.activePage === 'hq') {
+            renderPersonalComputer();
+        }
+    }
+}
+
+// --- FINE NUOVE FUNZIONI ---
+
 function updateNewsTicker() {
     if (state.activePage !== 'hq') return;
-
     if (state.news.length < MAX_NEWS_ITEMS) {
         const availableNews = newsData.filter(n => !state.news.some(sn => sn.headline === n.headline));
         if (availableNews.length > 0) {
-            const newNews = availableNews[Math.floor(Math.random() * availableNews.length)];
-            state.news.unshift(newNews); 
+            state.news.unshift(availableNews[Math.floor(Math.random() * availableNews.length)]);
         }
     } else {
         state.news.pop();
         const availableNews = newsData.filter(n => !state.news.some(sn => sn.headline === n.headline));
         if (availableNews.length > 0) {
-            const newNews = availableNews[Math.floor(Math.random() * availableNews.length)];
-            state.news.unshift(newNews);
+            state.news.unshift(availableNews[Math.floor(Math.random() * availableNews.length)]);
         }
     }
     renderNewsTicker();
@@ -115,18 +243,15 @@ function updateNewsTicker() {
 function renderNewsTicker() {
     const container = document.getElementById('news-ticker-container');
     if (!container) return;
-
     const getCategoryClass = (category) => {
         switch (category) {
             case 'Finanza': return 'border-green-500';
             case 'Geopolitica': return 'border-red-500';
             case 'Tech': return 'border-blue-500';
             case 'Cybersecurity': return 'border-yellow-500';
-            case 'Economia': return 'border-indigo-500';
             default: return 'border-gray-500';
         }
     };
-
     container.innerHTML = state.news.map(newsItem => `
         <div class="news-item p-2 border-l-4 ${getCategoryClass(newsItem.category)} bg-gray-800/50 rounded-r-md">
             <p class="text-xs font-bold">${newsItem.category}</p>
@@ -140,6 +265,7 @@ function initHqPage() {
     renderHqPage();
     renderQuestBoard();
     renderNewsTicker();
+    renderPersonalComputer(); // Aggiunta chiamata
 
     const intelBtn = document.getElementById('goto-intel-console-btn');
     if (intelBtn) {

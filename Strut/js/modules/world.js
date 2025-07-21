@@ -1,9 +1,20 @@
 // File: js/modules/world.js
-// VERSIONE AGGIORNATA: Mostra gli IP dei target e dei nodi di routing.
+// VERSIONE CORRETTA: Ripristinate le animazioni degli attacchi globali e risolto il problema di disallineamento iniziale.
 
 let selectedNation = null;
 let selectedTarget = null;
 let currentRoutingChain = [];
+
+// Funzione per le statistiche finte dei pannelli laterali
+function renderLiveStats() {
+    const leftPanel = document.getElementById('left-stats-panel');
+    const rightPanel = document.getElementById('right-stats-panel');
+    if (!leftPanel || !rightPanel) return;
+    const createStat = (label, value) => `<div class="stat-item"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`;
+    leftPanel.innerHTML = `${createStat('Attacchi Globali /s', (Math.random() * 100 + 350).toFixed(0))}${createStat('Dati Trasferiti', `${(Math.random() * 50 + 80).toFixed(2)} PB/s`)}${createStat('Vulnerabilità Scoperte', (Math.random() * 5 + 10).toFixed(0))}${createStat('Botnet Attive', '7')}`;
+    rightPanel.innerHTML = `${createStat('Top Paese Attaccante', 'Russia')}${createStat('Top Paese Bersaglio', 'USA')}${createStat('Protocollo Comune', 'HTTPS/SSL')}${createStat('Tipo Attacco Comune', 'DDoS')}`;
+}
+
 
 function initGlobe() {
     const globeContainer = document.getElementById('globe-container');
@@ -47,7 +58,11 @@ function initGlobe() {
     const networkNodesGroup = new THREE.Group();
     function latLonToVector3(lat, lon, r) { const p = (90 - lat) * (Math.PI / 180), t = (lon + 180) * (Math.PI / 180); return new THREE.Vector3(-(r*Math.sin(p)*Math.cos(t)),(r*Math.cos(p)),(r*Math.sin(p)*Math.sin(t)));}
     
-    Object.keys(worldData).forEach(nationName => {
+    const discoverableNations = Object.keys(worldData).filter(nationName => {
+        return worldData[nationName].targets.some(targetId => state.discoveredTargets.includes(targetId));
+    });
+
+    discoverableNations.forEach(nationName => {
         const nation = worldData[nationName];
         const color = nation.alignment === 'White Hat' ? 0x0ea5e9 : nation.alignment === 'Black Hat' ? 0xef4444 : 0xf59e0b;
         const nationMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color }));
@@ -57,12 +72,14 @@ function initGlobe() {
     });
     scene.add(nationsGroup);
 
-    Object.values(worldTargets).filter(t => t.category === 'network_nodes').forEach(node => {
-        const nodeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
-        nodeMesh.position.copy(latLonToVector3(node.lat, node.lon, 5.05));
-        nodeMesh.userData = { type: 'network_node', ...node };
-        networkNodesGroup.add(nodeMesh);
-    });
+    Object.values(worldTargets)
+        .filter(t => t.category === 'network_nodes' && state.discoveredTargets.includes(t.id))
+        .forEach(node => {
+            const nodeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+            nodeMesh.position.copy(latLonToVector3(node.lat, node.lon, 5.05));
+            nodeMesh.userData = { type: 'network_node', ...node };
+            networkNodesGroup.add(nodeMesh);
+        });
     scene.add(networkNodesGroup);
 
     const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
@@ -82,6 +99,7 @@ function initGlobe() {
         }
     });
 
+    // --- LOGICA ANIMAZIONI ATTACCHI RIPRISTINATA ---
     let activeAttacks = [];
     const attackInterval = setInterval(() => {
         if (activeAttacks.length < 20) { 
@@ -116,11 +134,9 @@ function initGlobe() {
         });
         renderer.render(scene, camera);
     }
-    animate();
-    
-    renderLiveStats();
-    const statsInterval = setInterval(renderLiveStats, 2000);
-    
+    // --- FINE LOGICA ANIMAZIONI ---
+
+    // --- FIX PER IL DISALLINEAMENTO ---
     function onWindowResize() {
         if (!globeContainer) return;
         camera.aspect = globeContainer.clientWidth / globeContainer.clientHeight;
@@ -129,17 +145,17 @@ function initGlobe() {
     }
     window.addEventListener('resize', onWindowResize);
     
-    setTimeout(onWindowResize, 100); 
+    // Chiamiamo il resize dopo un breve ritardo per assicurarci che il layout sia stabile
+    setTimeout(() => {
+        onWindowResize();
+        animate(); // Avviamo l'animazione solo dopo il primo resize
+    }, 150); 
+    
+    // --- STATISTICHE LIVE RIPRISTINATE ---
+    renderLiveStats();
+    const statsInterval = setInterval(renderLiveStats, 2000);
 }
 
-function renderLiveStats() {
-    const leftPanel = document.getElementById('left-stats-panel');
-    const rightPanel = document.getElementById('right-stats-panel');
-    if (!leftPanel || !rightPanel) return;
-    const createStat = (label, value) => `<div class="stat-item"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`;
-    leftPanel.innerHTML = `${createStat('Attacchi Globali /s', (Math.random() * 100 + 350).toFixed(0))}${createStat('Dati Trasferiti', `${(Math.random() * 50 + 80).toFixed(2)} PB/s`)}${createStat('Vulnerabilità Scoperte', (Math.random() * 5 + 10).toFixed(0))}${createStat('Botnet Attive', '7')}`;
-    rightPanel.innerHTML = `${createStat('Top Paese Attaccante', 'Russia')}${createStat('Top Paese Bersaglio', 'USA')}${createStat('Protocollo Comune', 'HTTPS/SSL')}${createStat('Tipo Attacco Comune', 'DDoS')}`;
-}
 
 function showNationPanel(nation) {
     selectedNation = nation;
@@ -148,14 +164,15 @@ function showNationPanel(nation) {
 
     const panel = document.getElementById('nation-panel');
     if (!panel) return;
+    
+    const nationTargets = nation.targets
+        .filter(id => state.discoveredTargets.includes(id))
+        .map(id => worldTargets[id]);
 
-    const nationTargets = nation.targets.map(id => worldTargets[id]);
     const targetsByCategory = nationTargets.reduce((acc, target) => {
         if (!target) return acc;
         const category = target.category;
-        if (!acc[category]) {
-            acc[category] = [];
-        }
+        if (!acc[category]) acc[category] = [];
         acc[category].push(target);
         return acc;
     }, {});
@@ -166,7 +183,7 @@ function showNationPanel(nation) {
             <div class="target-item p-3 rounded-lg cursor-pointer" data-target-id="${t.id}">
                 <div class="flex justify-between items-center">
                     <h4 class="font-bold text-base">${t.name}</h4>
-                    <span class="font-mono text-xs text-gray-500">${t.ipAddress}</span>
+                    <span class="font-mono text-xs text-gray-500">Tier ${t.tier}</span>
                 </div>
                 <p class="text-sm text-gray-400 mt-1">${t.rewardType}</p>
             </div>
@@ -267,7 +284,6 @@ function renderAttackSection(panel) {
                 <div id="routing-chain" class="space-y-2">${routingSlotsHTML}</div>
             </div>
         </div>
-        <!-- NUOVO: Contenitore per il percorso IP -->
         <div class="mt-2 text-center text-xs" id="routing-ip-path"></div>
         <div id="routing-summary" class="mt-4 p-2 bg-gray-800 rounded-lg text-xs font-mono grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
         <div class="mt-4 flex flex-col sm:flex-row gap-2">
@@ -283,7 +299,7 @@ function renderAttackSection(panel) {
     populateAvailableNodes();
     setupDragAndDrop();
     updateRoutingSummaryUI();
-    renderRoutingChain(); // Chiamata per inizializzare il percorso IP
+    renderRoutingChain();
     panel.querySelector('#launch-attack-button').addEventListener('click', launchAttack);
 }
 

@@ -1,7 +1,6 @@
 /**
  * js/world_targets_data.js
- * VERSIONE AGGIORNATA: Contiene il database espanso di tutti i target attaccabili,
- * con indirizzi IP unici per ogni entità.
+ * VERSIONE AGGIORNATA: Aggiunti TIER e CONDIZIONI DI SBLOCCO a ogni target.
  */
 
 const targetCategories = {
@@ -17,177 +16,81 @@ const targetCategories = {
 };
 
 const worldTargets = {
-    // --- TARGET GENERICI (Disponibili per quasi tutte le nazioni) ---
+    // --- TIER 1 (Iniziali - Sbloccati con la Scansione Globale) ---
+    "generic_population": {
+        id: "generic_population", name: "Popolazione Generale", ipAddress: "100.64.0.0/10",
+        category: "population", req: { lso: 4, rc: 1.8, lcs: 2, an: 3, eo: 4, rl: 6 },
+        rewardType: "Dati Anagrafici", rewardScale: 30000, sensitivity: 4, baseExecutionTime: 600,
+        tier: 1,
+        unlock_conditions: [] // Sbloccato di default con la pagina del mondo
+    },
+
+    // --- TIER 2 (Intermedi) ---
     "generic_regional_bank": {
         id: "generic_regional_bank", name: "Banca Commerciale Regionale", ipAddress: "172.21.10.5",
         category: "financial", req: { lso: 6, rc: 2.5, lcs: 4, an: 5, eo: 6, rl: 5 },
-        rewardType: "Dati Carte di Credito", rewardScale: 10000, sensitivity: 6, baseExecutionTime: 3600
-    },
-    "generic_power_plant": {
-        id: "generic_power_plant", name: "Centrale Elettrica Locale", ipAddress: "10.200.5.1",
-        category: "energy", req: { lso: 8, rc: 3.0, lcs: 5, an: 6, eo: 7, rl: 4 },
-        rewardType: "Controllo Rete Elettrica Locale", rewardScale: 1, sensitivity: 7, baseExecutionTime: 7200
+        rewardType: "Dati Carte di Credito", rewardScale: 10000, sensitivity: 6, baseExecutionTime: 3600,
+        tier: 2,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 5 }]
     },
     "generic_isp": {
         id: "generic_isp", name: "Provider Internet Nazionale", ipAddress: "198.51.100.1",
         category: "communication", req: { lso: 7, rc: 2.8, lcs: 4, an: 6, eo: 8, rl: 4 },
-        rewardType: "Log di Traffico Utenti", rewardScale: 5000, sensitivity: 6, baseExecutionTime: 5400
+        rewardType: "Log di Traffico Utenti", rewardScale: 5000, sensitivity: 6, baseExecutionTime: 5400,
+        tier: 2,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 7 }, { type: "TALENT", value: "Networking (Net)_LV1" }]
+    },
+    "it_gov": { 
+        id: "it_gov", name: "Server Governativi", ipAddress: "212.48.24.25", category: "government", 
+        req: { lso: 7, rc: 2.5, lcs: 5, an: 6, eo: 4, rl: 3 }, rewardType: "Comunicazioni Ministeriali", 
+        rewardScale: 5, sensitivity: 7, baseExecutionTime: 10800,
+        tier: 2,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 8 }]
+    },
+    
+    // --- TIER 3 (Avanzati) ---
+    "generic_power_plant": {
+        id: "generic_power_plant", name: "Centrale Elettrica Locale", ipAddress: "10.200.5.1",
+        category: "energy", req: { lso: 8, rc: 3.0, lcs: 5, an: 6, eo: 7, rl: 4 },
+        rewardType: "Controllo Rete Elettrica Locale", rewardScale: 1, sensitivity: 7, baseExecutionTime: 7200,
+        tier: 3,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 12 }, { type: "TALENT", value: "Networking (Net)_LV2" }]
     },
     "generic_hospital": {
         id: "generic_hospital", name: "Sistema Sanitario Regionale", ipAddress: "192.0.2.123",
         category: "public", req: { lso: 8, rc: 3.0, lcs: 7, an: 8, eo: 6, rl: 4 },
-        rewardType: "Cartelle Cliniche", rewardScale: 10000, sensitivity: 8, baseExecutionTime: 14400
+        rewardType: "Cartelle Cliniche", rewardScale: 10000, sensitivity: 8, baseExecutionTime: 14400,
+        tier: 3,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 15 }, { type: "TALENT", value: "SQL_LV2" }]
     },
-    "generic_population": {
-        id: "generic_population", name: "Popolazione Generale", ipAddress: "100.64.0.0/10",
-        category: "population", req: { lso: 4, rc: 1.8, lcs: 2, an: 3, eo: 4, rl: 6 },
-        rewardType: "Dati Anagrafici", rewardScale: 30000, sensitivity: 4, baseExecutionTime: 600
+    "usa_wallstreet": { 
+        id: "usa_wallstreet", name: "Borsa di Wall Street", ipAddress: "72.21.206.6", category: "financial", 
+        req: { lso: 12, rc: 4.0, lcs: 8, an: 10, eo: 10, rl: 2 }, rewardType: "Dati Finanziari Top-Tier", 
+        rewardScale: 500, sensitivity: 9, baseExecutionTime: 43200,
+        tier: 3,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 18 }, { type: "TALENT", value: "SQL_LV3" }]
     },
 
-    // --- TARGET SPECIFICI PER NAZIONE ---
-    // Cina
-    "cn_gfw": { id: "cn_gfw", name: "Great Firewall", ipAddress: "202.106.0.20", category: "government", req: { lso: 18, rc: 4.8, lcs: 12, an: 10, eo: 10, rl: 1 }, rewardType: "Chiavi di Cifratura GFW", rewardScale: 1, sensitivity: 10, baseExecutionTime: 172800 },
-    "cn_shanghai_port": { id: "cn_shanghai_port", name: "Porto di Shanghai", ipAddress: "116.228.111.98", category: "transport", req: { lso: 11, rc: 3.8, lcs: 6, an: 8, eo: 9, rl: 3 }, rewardType: "Dati Logistici Globali", rewardScale: 8000, sensitivity: 8, baseExecutionTime: 45000 },
-    "cn_bank_of_china": { id: "cn_bank_of_china", name: "Bank of China", ipAddress: "111.202.2.22", category: "financial", req: { lso: 13, rc: 4.2, lcs: 9, an: 11, eo: 9, rl: 2 }, rewardType: "Registri Transazioni Partito", rewardScale: 1000, sensitivity: 9, baseExecutionTime: 54000 },
-
-    // Giappone
-    "jp_tokyo_stock_exchange": { id: "jp_tokyo_stock_exchange", name: "Borsa di Tokyo", ipAddress: "210.150.111.1", category: "financial", req: { lso: 12, rc: 4.1, lcs: 8, an: 10, eo: 11, rl: 2 }, rewardType: "Algoritmi di High-Frequency Trading", rewardScale: 750, sensitivity: 9, baseExecutionTime: 60000 },
-    "jp_shinkansen_control": { id: "jp_shinkansen_control", name: "Rete Shinkansen", ipAddress: "10.130.5.1", category: "transport", req: { lso: 10, rc: 3.9, lcs: 7, an: 8, eo: 8, rl: 3 }, rewardType: "Dati Controllo Treni", rewardScale: 200, sensitivity: 8, baseExecutionTime: 32000 },
-
-    // Francia
-    "fr_dgse_hq": { id: "fr_dgse_hq", name: "DGSE (Intelligence Estera)", ipAddress: "80.12.34.56", category: "government", req: { lso: 15, rc: 4.4, lcs: 11, an: 13, eo: 9, rl: 1 }, rewardType: "Operazioni in Africa", rewardScale: 5, sensitivity: 10, baseExecutionTime: 79200 },
-    "fr_nuclear_plant": { id: "fr_nuclear_plant", name: "Centrale Nucleare", ipAddress: "10.15.200.10", category: "energy", req: { lso: 18, rc: 4.9, lcs: 13, an: 12, eo: 10, rl: 0 }, rewardType: "Dati Controllo Reattore", rewardScale: 1, sensitivity: 10, baseExecutionTime: 250000 },
-
-    // Canada
-    "ca_hydro_dam": { id: "ca_hydro_dam", name: "Diga Idroelettrica (Quebec)", ipAddress: "10.210.1.1", category: "energy", req: { lso: 10, rc: 3.5, lcs: 7, an: 9, eo: 8, rl: 4 }, rewardType: "Controllo Rete Elettrica", rewardScale: 1, sensitivity: 8, baseExecutionTime: 28800 },
-    "ca_csis_hq": { id: "ca_csis_hq", name: "CSIS (Intelligence)", ipAddress: "207.216.1.15", category: "government", req: { lso: 13, rc: 4.2, lcs: 10, an: 12, eo: 8, rl: 2 }, rewardType: "Dati di Controspionaggio", rewardScale: 6, sensitivity: 9, baseExecutionTime: 72000 },
-
-    // Brasile
-    "br_election_system": { id: "br_election_system", name: "Sistema di Voto Elettronico", ipAddress: "200.221.2.130", category: "government", req: { lso: 9, rc: 3.1, lcs: 6, an: 7, eo: 6, rl: 4 }, rewardType: "Registri di Voto", rewardScale: 20000, sensitivity: 7, baseExecutionTime: 10800 },
-
-    // India
-    "in_aadhaar_db": { id: "in_aadhaar_db", name: "Database Biometrico (Aadhaar)", ipAddress: "164.100.12.1", category: "public", req: { lso: 14, rc: 4.0, lcs: 9, an: 10, eo: 7, rl: 2 }, rewardType: "Dati Biometrici", rewardScale: 500000, sensitivity: 9, baseExecutionTime: 86400 },
-
-    // Israele
-    "il_mossad_hq": { id: "il_mossad_hq", name: "Quartier Generale Mossad", ipAddress: "82.80.11.18", category: "government", req: { lso: 19, rc: 5.0, lcs: 14, an: 15, eo: 10, rl: 0 }, rewardType: "Identità Agenti Sotto Copertura", rewardScale: 1, sensitivity: 10, baseExecutionTime: 259200 },
-    "il_iron_dome": { id: "il_iron_dome", name: "Sistema Iron Dome", ipAddress: "212.179.100.1", category: "government", req: { lso: 17, rc: 4.8, lcs: 12, an: 13, eo: 11, rl: 0 }, rewardType: "Codici di Tracciamento Missilistico", rewardScale: 2, sensitivity: 10, baseExecutionTime: 220000 },
-
-    // Arabia Saudita
-    "sa_aramco_refinery": { id: "sa_aramco_refinery", name: "Raffineria Saudi Aramco", ipAddress: "10.1.150.10", category: "energy", req: { lso: 14, rc: 4.4, lcs: 9, an: 11, eo: 10, rl: 2 }, rewardType: "Dati Riserve Petrolifere", rewardScale: 1, sensitivity: 10, baseExecutionTime: 108000 },
-
-    // Turchia
-    "tr_bayraktar_hq": { id: "tr_bayraktar_hq", name: "Industria Droni Bayraktar", ipAddress: "88.255.10.1", category: "industry", req: { lso: 12, rc: 4.0, lcs: 8, an: 10, eo: 9, rl: 3 }, rewardType: "Schemi Droni Militari", rewardScale: 5, sensitivity: 9, baseExecutionTime: 57600 },
-
-    // Sudafrica
-    "za_eskom_grid": { id: "za_eskom_grid", name: "Rete Elettrica Eskom", ipAddress: "10.50.1.1", category: "energy", req: { lso: 8, rc: 2.7, lcs: 4, an: 5, eo: 7, rl: 5 }, rewardType: "Schemi di Load Shedding", rewardScale: 1, sensitivity: 7, baseExecutionTime: 10800 },
-
-    // Australia
-    "au_mining_corp": { id: "au_mining_corp", name: "Compagnia Mineraria (Pilbara)", ipAddress: "10.180.5.10", category: "industry", req: { lso: 9, rc: 3.3, lcs: 6, an: 8, eo: 8, rl: 4 }, rewardType: "Mappe Risorse Naturali", rewardScale: 50, sensitivity: 8, baseExecutionTime: 18000 },
-
-    // Corea del Sud
-    "sk_samsung_rd": { id: "sk_samsung_rd", name: "Centro R&D Samsung", ipAddress: "211.234.110.1", category: "industry", req: { lso: 12, rc: 4.1, lcs: 9, an: 10, eo: 9, rl: 2 }, rewardType: "Prototipi Smartphone", rewardScale: 5, sensitivity: 9, baseExecutionTime: 43200 },
-
-    // Taiwan
-    "tw_tsmc_fab": { id: "tw_tsmc_fab", name: "Fabbrica Semiconduttori (TSMC)", ipAddress: "10.60.1.1", category: "industry", req: { lso: 15, rc: 4.6, lcs: 11, an: 12, eo: 10, rl: 1 }, rewardType: "Schemi Chip di Nuova Generazione", rewardScale: 3, sensitivity: 10, baseExecutionTime: 160000 },
-
-    // Iran
-    "ir_nuclear_program": { id: "ir_nuclear_program", name: "Programma Nucleare", ipAddress: "10.80.1.5", category: "energy", req: { lso: 17, rc: 4.8, lcs: 11, an: 13, eo: 10, rl: 0 }, rewardType: "Dati Arricchimento Uranio", rewardScale: 1, sensitivity: 10, baseExecutionTime: 216000 },
-
-    // Generici di alto livello
-    "generic_swift_node": { id: "generic_swift_node", name: "Nodo SWIFT", ipAddress: "192.102.199.1", category: "financial", req: { lso: 15, rc: 4.6, lcs: 12, an: 14, eo: 10, rl: 1 }, rewardType: "Log Transazioni Internazionali", rewardScale: 5000, sensitivity: 10, baseExecutionTime: 190000 },
-    "generic_pharma_lab": { id: "generic_pharma_lab", name: "Laboratorio Farmaceutico", ipAddress: "10.115.1.1", category: "industry", req: { lso: 11, rc: 3.7, lcs: 8, an: 9, eo: 8, rl: 3 }, rewardType: "Formule Farmaceutiche", rewardScale: 100, sensitivity: 9, baseExecutionTime: 65000 },
-
-    // USA
-    "usa_pentagon": { id: "usa_pentagon", name: "Pentagono", ipAddress: "208.111.153.100", category: "government", req: { lso: 15, rc: 4.5, lcs: 10, an: 12, eo: 8, rl: 0 }, rewardType: "Informazioni Governative Riservate", rewardScale: 1, sensitivity: 10, baseExecutionTime: 86400 },
-    "usa_wallstreet": { id: "usa_wallstreet", name: "Borsa di Wall Street", ipAddress: "72.21.206.6", category: "financial", req: { lso: 12, rc: 4.0, lcs: 8, an: 10, eo: 10, rl: 2 }, rewardType: "Dati Finanziari Top-Tier", rewardScale: 500, sensitivity: 9, baseExecutionTime: 43200 },
-    "usa_faa_atc": { id: "usa_faa_atc", name: "Controllo Traffico Aereo (FAA)", ipAddress: "162.159.192.1", category: "transport", req: { lso: 13, rc: 4.2, lcs: 8, an: 11, eo: 9, rl: 1 }, rewardType: "Dati di Volo Nazionali", rewardScale: 100, sensitivity: 9, baseExecutionTime: 64800 },
-
-    // UK
-    "uk_mi6": { id: "uk_mi6", name: "MI6 HQ", ipAddress: "212.58.244.67", category: "government", req: { lso: 14, rc: 4.2, lcs: 9, an: 11, eo: 9, rl: 1 }, rewardType: "Dossier di Intelligence", rewardScale: 3, sensitivity: 10, baseExecutionTime: 72000 },
-    
-    // Italia
-    "it_gov": { id: "it_gov", name: "Server Governativi", ipAddress: "212.48.24.25", category: "government", req: { lso: 7, rc: 2.5, lcs: 5, an: 6, eo: 4, rl: 3 }, rewardType: "Comunicazioni Ministeriali", rewardScale: 5, sensitivity: 7, baseExecutionTime: 10800 },
-    "it_telecom": { id: "it_telecom", name: "Rete Telecomunicazioni Nazionale", ipAddress: "85.36.160.10", category: "communication", req: { lso: 8, rc: 2.8, lcs: 4, an: 5, eo: 6, rl: 4 }, rewardType: "Log di Traffico", rewardScale: 1000, sensitivity: 6, baseExecutionTime: 7200 },
-
-    // Germania
-    "de_datacenter_frankfurt": { id: "de_datacenter_frankfurt", name: "Datacenter Hub (Francoforte)", ipAddress: "78.46.107.121", category: "communication", req: { lso: 9, rc: 3.8, lcs: 8, an: 8, eo: 7, rl: 2 }, rewardType: "Credenziali Cloud Aziendali", rewardScale: 500, sensitivity: 8, baseExecutionTime: 18000 },
-    "de_automotive_scada": { id: "de_automotive_scada", name: "Industria Automobilistica (SCADA)", ipAddress: "10.100.20.1", category: "industry", req: { lso: 10, rc: 3.5, lcs: 6, an: 7, eo: 8, rl: 3 }, rewardType: "Progetti Auto Elettriche", rewardScale: 15, sensitivity: 9, baseExecutionTime: 25200 },
-
-    // Russia
-    "ru_kremlin": { id: "ru_kremlin", name: "Reti del Cremlino", ipAddress: "93.158.134.8", category: "government", req: { lso: 16, rc: 4.6, lcs: 10, an: 12, eo: 9, rl: 1 }, rewardType: "Comunicazioni Diplomatiche", rewardScale: 4, sensitivity: 10, baseExecutionTime: 129600 },
-    "ru_gazprom": { id: "ru_gazprom", name: "Gazprom Network", ipAddress: "5.255.255.5", category: "energy", req: { lso: 12, rc: 4.0, lcs: 7, an: 9, eo: 8, rl: 3 }, rewardType: "Mappe Gasdotti", rewardScale: 20, sensitivity: 8, baseExecutionTime: 36000 },
-
-    // Svizzera
-    "ch_swiss_banks": { id: "ch_swiss_banks", name: "Caveau Banche Svizzere", ipAddress: "193.5.81.10", category: "financial", req: { lso: 14, rc: 4.5, lcs: 12, an: 13, eo: 8, rl: 1 }, rewardType: "Numeri Conti Segreti", rewardScale: 100, sensitivity: 10, baseExecutionTime: 172800 },
-    "ch_cern": { id: "ch_cern", name: "Datacenter CERN", ipAddress: "188.184.0.0", category: "industry", req: { lso: 14, rc: 4.5, lcs: 11, an: 12, eo: 9, rl: 2 }, rewardType: "Dati Esperimenti Fisici", rewardScale: 2, sensitivity: 9, baseExecutionTime: 108000 },
-    
-    // --- NODI DI RETE GLOBALI (Sovranazionali) ---
-    "ixp_linx_london": {
-        id: "ixp_linx_london", name: "LINX (Londra)", ipAddress: "195.66.224.0", category: "network_nodes",
-        lat: 51.5074, lon: -0.1278, req: { lso: 16, rc: 4.7, lcs: 10, an: 12, eo: 12, rl: 1 },
-        rewardType: "Dati di Peering Britannico", rewardScale: 9500, sensitivity: 9, baseExecutionTime: 145000
+    // --- TIER 4 (Elite) ---
+    "usa_pentagon": { 
+        id: "usa_pentagon", name: "Pentagono", ipAddress: "208.111.153.100", category: "government", 
+        req: { lso: 15, rc: 4.5, lcs: 10, an: 12, eo: 8, rl: 0 }, rewardType: "Informazioni Governative Riservate", 
+        rewardScale: 1, sensitivity: 10, baseExecutionTime: 86400,
+        tier: 4,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 25 }, { type: "TALENT", value: "Exploit Development_LV2" }]
     },
-    "cloud_azure_dublin": {
-        id: "cloud_azure_dublin", name: "Azure Region (Dublino)", ipAddress: "40.113.0.0", category: "network_nodes",
-        lat: 53.3498, lon: -6.2603, req: { lso: 17, rc: 4.8, lcs: 12, an: 13, eo: 11, rl: 0 },
-        rewardType: "Dati Cloud Europei", rewardScale: 24000, sensitivity: 10, baseExecutionTime: 210000
+    "il_mossad_hq": { 
+        id: "il_mossad_hq", name: "Quartier Generale Mossad", ipAddress: "82.80.11.18", category: "government", 
+        req: { lso: 19, rc: 5.0, lcs: 14, an: 15, eo: 10, rl: 0 }, rewardType: "Identità Agenti Sotto Copertura", 
+        rewardScale: 1, sensitivity: 10, baseExecutionTime: 259200,
+        tier: 4,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 30 }, { type: "TALENT", value: "Stealth_LV3" }, { type: "TALENT", value: "Social Engineering (SocEng)_LV4" }]
     },
-    "submarine_cable_landing_jp": {
-        id: "submarine_cable_landing_jp", name: "Stazione Cavi Sottomarini (Giappone)", ipAddress: "203.181.100.1", category: "network_nodes",
-        lat: 35.6895, lon: 139.6917, req: { lso: 15, rc: 4.5, lcs: 11, an: 11, eo: 10, rl: 2 },
-        rewardType: "Traffico Dati Trans-Pacifico", rewardScale: 15000, sensitivity: 9, baseExecutionTime: 180000
-    },
-    "ixp_de-cix": {
-        id: "ixp_de-cix", name: "DE-CIX (Francoforte)", ipAddress: "80.81.192.0", category: "network_nodes",
-        lat: 50.1109, lon: 8.6821, req: { lso: 16, rc: 4.7, lcs: 10, an: 12, eo: 12, rl: 1 },
-        rewardType: "Flussi di Traffico Globale", rewardScale: 10000, sensitivity: 9, baseExecutionTime: 150000
-    },
-    "ixp_ams-ix": {
-        id: "ixp_ams-ix", name: "AMS-IX (Amsterdam)", ipAddress: "193.239.116.0", category: "network_nodes",
-        lat: 52.3676, lon: 4.9041, req: { lso: 16, rc: 4.7, lcs: 10, an: 12, eo: 12, rl: 1 },
-        rewardType: "Flussi di Traffico Globale", rewardScale: 10000, sensitivity: 9, baseExecutionTime: 150000
-    },
-    "cloud_aws_virginia": {
-        id: "cloud_aws_virginia", name: "AWS Region (N. Virginia)", ipAddress: "52.95.110.1", category: "network_nodes",
-        lat: 38.8816, lon: -77.4284, req: { lso: 17, rc: 4.8, lcs: 12, an: 13, eo: 11, rl: 0 },
-        rewardType: "Dati Aziendali Cloud", rewardScale: 25000, sensitivity: 10, baseExecutionTime: 200000
-    },
-    "dns_root_server": {
+     "dns_root_server": {
         id: "dns_root_server", name: "DNS Root Server (Simulato)", ipAddress: "199.7.83.42", category: "network_nodes",
         lat: 48.8566, lon: 2.3522, req: { lso: 20, rc: 5.0, lcs: 15, an: 15, eo: 10, rl: 0 },
-        rewardType: "Chiavi DNS Globali", rewardScale: 1, sensitivity: 10, baseExecutionTime: 300000
-    },
-    "cloud_google_belgium": {
-        id: "cloud_google_belgium", name: "Google Cloud Region (Belgio)", ipAddress: "35.242.128.0", category: "network_nodes",
-        lat: 50.8503, lon: 4.3517, req: { lso: 17, rc: 4.8, lcs: 12, an: 13, eo: 11, rl: 0 },
-        rewardType: "Dati Utenti Google Europei", rewardScale: 22000, sensitivity: 10, baseExecutionTime: 215000
-    },
-    "submarine_cable_landing_uk": {
-        id: "submarine_cable_landing_uk", name: "Stazione Cavi Sottomarini (Cornwall, UK)", ipAddress: "213.121.192.1", category: "network_nodes",
-        lat: 50.2660, lon: -5.0527, req: { lso: 15, rc: 4.5, lcs: 11, an: 11, eo: 10, rl: 2 },
-        rewardType: "Traffico Dati Trans-Atlantico", rewardScale: 16000, sensitivity: 9, baseExecutionTime: 185000
-    },
-    "nl_port_rotterdam": { id: "nl_port_rotterdam", name: "Porto di Rotterdam", ipAddress: "10.31.0.1", category: "transport", req: { lso: 12, rc: 4.0, lcs: 7, an: 9, eo: 10, rl: 2 }, rewardType: "Manifesti di Carico Internazionali", rewardScale: 9000, sensitivity: 8, baseExecutionTime: 50000 },
-    "nl_asml_hq": { id: "nl_asml_hq", name: "ASML (Litografia EUV)", ipAddress: "10.110.1.1", category: "industry", req: { lso: 16, rc: 4.7, lcs: 12, an: 13, eo: 10, rl: 1 }, rewardType: "Schemi Macchinari Semiconduttori", rewardScale: 2, sensitivity: 10, baseExecutionTime: 190000 },
-    "se_saab_defence": { id: "se_saab_defence", name: "SAAB Defence Systems", ipAddress: "10.120.1.1", category: "industry", req: { lso: 13, rc: 4.3, lcs: 9, an: 11, eo: 9, rl: 2 }, rewardType: "Progetti Caccia Gripen", rewardScale: 4, sensitivity: 9, baseExecutionTime: 54000 },
-    "se_bankid_system": { id: "se_bankid_system", name: "Sistema BankID", ipAddress: "192.121.108.1", category: "financial", req: { lso: 14, rc: 4.5, lcs: 11, an: 12, eo: 8, rl: 2 }, rewardType: "Chiavi di Autenticazione Nazionale", rewardScale: 1000, sensitivity: 8, baseExecutionTime: 86400 },
-    "es_cni_intel": { id: "es_cni_intel", name: "CNI (Intelligence)", ipAddress: "213.4.111.1", category: "government", req: { lso: 12, rc: 3.8, lcs: 8, an: 10, eo: 7, rl: 3 }, rewardType: "Informazioni sul Narcotraffico", rewardScale: 10, sensitivity: 8, baseExecutionTime: 57600 },
-    "es_tourism_db": { id: "es_tourism_db", name: "Database Turistico Nazionale", ipAddress: "212.128.1.1", category: "public", req: { lso: 7, rc: 2.6, lcs: 5, an: 6, eo: 6, rl: 5 }, rewardType: "Dati Carte di Credito Turisti", rewardScale: 30000, sensitivity: 6, baseExecutionTime: 9000 },
-    "mx_cartel_comms": { id: "mx_cartel_comms", name: "Reti di Comunicazione Cartelli", ipAddress: "187.191.7.1", category: "government", req: { lso: 9, rc: 3.2, lcs: 7, an: 8, eo: 7, rl: 5 }, rewardType: "Rotta del Narcotraffico", rewardScale: 50, sensitivity: 8, baseExecutionTime: 3600 },
-    "mx_pemex_oil": { id: "mx_pemex_oil", name: "Pemex (Compagnia Petrolifera)", ipAddress: "10.40.1.1", category: "energy", req: { lso: 8, rc: 2.8, lcs: 5, an: 6, eo: 8, rl: 6 }, rewardType: "Dati di Esplorazione", rewardScale: 100, sensitivity: 7, baseExecutionTime: 5400 },
-    "ng_oil_industry": { id: "ng_oil_industry", name: "Industria Petrolifera", ipAddress: "10.55.1.1", category: "energy", req: { lso: 7, rc: 2.5, lcs: 4, an: 5, eo: 6, rl: 5 }, rewardType: "Dati Produzione Petrolio", rewardScale: 100, sensitivity: 7, baseExecutionTime: 5400 },
-    "ng_banking_system": { id: "ng_banking_system", name: "Sistemi Bancari Locali", ipAddress: "196.46.244.1", category: "financial", req: { lso: 6, rc: 2.2, lcs: 3, an: 4, eo: 5, rl: 6 }, rewardType: "Liste Clienti Vulnerabili", rewardScale: 25000, sensitivity: 6, baseExecutionTime: 3600 },
-    "eg_suez_control": { id: "eg_suez_control", name: "Controllo Canale di Suez", ipAddress: "10.32.1.1", category: "transport", req: { lso: 11, rc: 3.4, lcs: 6, an: 8, eo: 9, rl: 4 }, rewardType: "Log di Transito Navi", rewardScale: 500, sensitivity: 8, baseExecutionTime: 36000 },
-    "eg_mukhabarat_hq": { id: "eg_mukhabarat_hq", name: "Intelligence Generale (Mukhabarat)", ipAddress: "196.202.1.1", category: "government", req: { lso: 13, rc: 4.0, lcs: 8, an: 10, eo: 8, rl: 3 }, rewardType: "Dati di Sorveglianza Interna", rewardScale: 10000, sensitivity: 9, baseExecutionTime: 64800 },
-    "no_seed_vault": { id: "no_seed_vault", name: "Global Seed Vault (Svalbard)", ipAddress: "158.39.188.1", category: "industry", req: { lso: 12, rc: 4.1, lcs: 10, an: 11, eo: 7, rl: 2 }, rewardType: "Mappatura Genetica Agricola", rewardScale: 5, sensitivity: 8, baseExecutionTime: 95000 },
-    "no_oil_platform": { id: "no_oil_platform", name: "Piattaforma Petrolifera (Statoil)", ipAddress: "10.135.1.1", category: "energy", req: { lso: 13, rc: 4.3, lcs: 8, an: 10, eo: 9, rl: 2 }, rewardType: "Dati di Trivellazione Offshore", rewardScale: 150, sensitivity: 8, baseExecutionTime: 78000 },
-    "sg_port_authority": { id: "sg_port_authority", name: "Autorità Portuale di Singapore", ipAddress: "10.33.1.1", category: "transport", req: { lso: 13, rc: 4.2, lcs: 9, an: 10, eo: 11, rl: 2 }, rewardType: "Dati Movimento Flotte Globali", rewardScale: 7000, sensitivity: 8, baseExecutionTime: 62000 },
-    "sg_mas_financial": { id: "sg_mas_financial", name: "Autorità Monetaria di Singapore (MAS)", ipAddress: "165.21.1.1", category: "financial", req: { lso: 14, rc: 4.4, lcs: 11, an: 12, eo: 9, rl: 1 }, rewardType: "Dati Riserve Valutarie", rewardScale: 200, sensitivity: 9, baseExecutionTime: 110000 },
-    "ae_burj_khalifa_scada": { id: "ae_burj_khalifa_scada", name: "SCADA Burj Khalifa", ipAddress: "10.25.1.1", category: "public", req: { lso: 10, rc: 3.6, lcs: 7, an: 8, eo: 8, rl: 3 }, rewardType: "Controllo Sistemi Edificio", rewardScale: 1, sensitivity: 7, baseExecutionTime: 48000 },
-    "ae_dubai_financial_market": { id: "ae_dubai_financial_market", name: "Borsa di Dubai", ipAddress: "82.212.64.1", category: "financial", req: { lso: 11, rc: 3.9, lcs: 8, an: 10, eo: 10, rl: 3 }, rewardType: "Dati Transazioni Petrolifere", rewardScale: 3000, sensitivity: 8, baseExecutionTime: 55000 },
-    "kp_bureau_121": { id: "kp_bureau_121", name: "Bureau 121 (Guerra Cibernetica)", ipAddress: "175.45.176.1", category: "government", req: { lso: 16, rc: 4.5, lcs: 10, an: 14, eo: 9, rl: 1 }, rewardType: "Toolkit di Hacking Statali", rewardScale: 3, sensitivity: 10, baseExecutionTime: 280000 },
-    "kp_national_intranet": { id: "kp_national_intranet", name: "Intranet Nazionale 'Kwangmyong'", ipAddress: "10.76.1.1", category: "communication", req: { lso: 9, rc: 3.0, lcs: 5, an: 8, eo: 4, rl: 4 }, rewardType: "Log di Navigazione Utenti", rewardScale: 1000, sensitivity: 5, baseExecutionTime: 15000 },
-    "generic_who_database": { id: "generic_who_database", name: "Database Organizzazione Mondiale Sanità", ipAddress: "158.174.0.1", category: "public", req: { lso: 14, rc: 4.3, lcs: 11, an: 12, eo: 8, rl: 1 }, rewardType: "Dati Ricerca Virologica", rewardScale: 10, sensitivity: 9, baseExecutionTime: 130000 },
-    "generic_satellite_network": { id: "generic_satellite_network", name: "Rete Satellitare Commerciale", ipAddress: "192.203.230.10", category: "communication", req: { lso: 13, rc: 4.1, lcs: 9, an: 11, eo: 10, rl: 2 }, rewardType: "Dati di Geolocalizzazione Globale", rewardScale: 5000, sensitivity: 8, baseExecutionTime: 90000 },
-    "generic_ca_root": { id: "generic_ca_root", name: "Server Root Certificate Authority", ipAddress: "192.36.148.17", category: "communication", req: { lso: 18, rc: 4.9, lcs: 14, an: 14, eo: 9, rl: 0 }, rewardType: "Chiavi Private CA", rewardScale: 1, sensitivity: 10, baseExecutionTime: 260000 }
+        rewardType: "Chiavi DNS Globali", rewardScale: 1, sensitivity: 10, baseExecutionTime: 300000,
+        tier: 4,
+        unlock_conditions: [{ type: "PLAYER_LEVEL", value: 35 }, { type: "TALENT", value: "Exploit Development_LV3" }]
+    }
 };

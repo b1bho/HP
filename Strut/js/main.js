@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE CORRETTA: La funzione di refresh IP ora supporta anche il firewall del clan.
+// VERSIONE AGGIORNATA: Aggiunto stato per sblocco mondo, target scoperti e computer personale.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -19,9 +19,24 @@ let state = {
         traces: 3,
         investigatedBy: 'Nessuno',
         suspicion: 15,
-        realIp: "87.15.22.113", // IP di default
+        realIp: "87.15.22.113",
         isIpDynamic: true,
     },
+    // --- NUOVE VARIABILI DI STATO ---
+    isWorldUnlocked: false,
+    discoveredTargets: [], // Array di ID dei target visibili al giocatore
+    personalComputer: {
+        slots: 5,
+        // Ogni slot può contenere il nome del flusso e il suo stato (es. 'idle', 'running')
+        attachedFlows: [
+            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
+            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
+            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
+            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
+            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
+        ]
+    },
+    // --- FINE NUOVE VARIABILI ---
     storage: {
         personalMax: 100,
         personalUsed: 0
@@ -37,9 +52,9 @@ let state = {
     activePage: 'hq',
     activeProfileSection: 'talents',
     savedFlows: {},
-    ownedHardware: {}, // Per CPU, RAM, etc.
-    purchasedServices: {}, // Per gestire lo stato dei servizi come le VPN
-    clan: null, // Importante: il valore di default è null
+    ownedHardware: {},
+    purchasedServices: {},
+    clan: null,
     hardwareBonuses: {
         studyTimeModifier: 1,
         toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 }
@@ -73,21 +88,18 @@ function generateRandomIp() {
     return `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 }
 
-// VERSIONE AGGIORNATA
 function refreshVpnIp(serviceId) {
     let serviceData, serviceState;
     let isClanService = false;
     let currency = 'XMR';
     let balance;
 
-    // 1. Cerca tra i servizi personali
     const personalServiceData = marketData.networkServices.find(s => s.id === serviceId);
     if (personalServiceData && state.purchasedServices[serviceId]) {
         serviceData = personalServiceData;
         serviceState = state.purchasedServices[serviceId];
         balance = state.xmr;
     } 
-    // 2. Cerca nella VPN del clan
     else if (state.clan && state.clan.infrastructure.c_vpn) {
         const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
         const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
@@ -99,7 +111,6 @@ function refreshVpnIp(serviceId) {
             currency = 'BTC';
         }
     }
-    // 3. Cerca nel Firewall del clan
     else if (state.clan && state.clan.infrastructure.c_firewall) {
         const clanFirewallTier = state.clan.infrastructure.c_firewall.tier - 1;
         const clanFirewallData = marketData.clanInfrastructure.c_firewall.tiers[clanFirewallTier];
@@ -118,8 +129,6 @@ function refreshVpnIp(serviceId) {
     }
 
     const costXMR = serviceData.refreshCostXMR;
-    // Il costo per i servizi del clan è in XMR ma pagato dalla tesoreria in BTC.
-    // Assumiamo un tasso di cambio fittizio per la conversione.
     const xmrToBtcRate = 0.0035; 
     const finalCost = isClanService ? costXMR * xmrToBtcRate : costXMR;
 
@@ -164,34 +173,25 @@ function saveState() {
     localStorage.setItem('hackerAppState', JSON.stringify(state));
 }
 
-// --- NUOVA LOGICA DI CARICAMENTO STATO ---
-
-// Funzione helper per verificare se una variabile è un oggetto (e non null o un array)
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
 
-// Funzione di unione profonda (deep merge) più sicura
 function deepMerge(target, source) {
     const output = { ...target };
-
     if (isObject(target) && isObject(source)) {
         Object.keys(source).forEach(key => {
             if (isObject(source[key])) {
-                // Se la chiave esiste nel target ed è anch'essa un oggetto, unisci ricorsivamente
                 if (key in target && isObject(target[key])) {
                     output[key] = deepMerge(target[key], source[key]);
                 } else {
-                // Altrimenti, sovrascrivi semplicemente con l'oggetto del source
                     output[key] = source[key];
                 }
             } else {
-                // Se non è un oggetto, assegna direttamente il valore
                 output[key] = source[key];
             }
         });
     }
-
     return output;
 }
 
@@ -200,7 +200,6 @@ function loadState() {
     if (savedState) {
         try {
             const loadedState = JSON.parse(savedState);
-            // Usa la nuova funzione deepMerge per unire in modo sicuro lo stato salvato con quello di default
             state = deepMerge(state, loadedState);
         } catch (e) {
             console.error("Errore nel parsing dello stato salvato, reset in corso.", e);
@@ -215,14 +214,12 @@ function initializeDynamicState() {
     if (!state.identity.realIp) {
         state.identity.realIp = generateRandomIp();
     }
-
     for (const serviceId in state.purchasedServices) {
         if (state.purchasedServices[serviceId] && !state.purchasedServices[serviceId].currentIp) {
             const serviceData = marketData.networkServices.find(s => s.id === serviceId);
             state.purchasedServices[serviceId].currentIp = serviceData ? serviceData.ipAddress : generateRandomIp();
         }
     }
-
     if (state.clan && state.clan.infrastructure) {
         if (state.clan.infrastructure.c_vpn && !state.clan.infrastructure.c_vpn.currentIp) {
             const tier = state.clan.infrastructure.c_vpn.tier - 1;
@@ -252,6 +249,22 @@ function destroyLines() {
 
 async function switchPage(pageName) {
     if (!pageName) return;
+
+    // --- NUOVA LOGICA DI BLOCCO PAGINA MONDO ---
+    if (pageName === 'world' && !state.isWorldUnlocked) {
+        appContainer.innerHTML = `
+            <div class="text-center p-10">
+                <h2 class="text-4xl font-bold text-red-500 mb-4">ACCESSO NEGATO</h2>
+                <p class="text-lg text-gray-400">Il cyber-spazio è vasto e sconosciuto.</p>
+                <p class="text-lg text-gray-400">Esegui una "Scansione Internet" dal tuo computer nell'HQ per mappare i primi obiettivi.</p>
+            </div>
+        `;
+        // Deseleziona tutti i pulsanti e non procedere oltre
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        return;
+    }
+    // --- FINE LOGICA DI BLOCCO ---
+
     state.activePage = pageName;
     destroyLines();
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -335,6 +348,7 @@ function addXp(amount, target = 'player') {
         }
     }
     updateUI();
+    checkTargetUnlocks(); // Controlla se si sbloccano nuovi target dopo aver guadagnato XP/livelli
 }
 
 function updateAllBonuses() {
@@ -431,8 +445,9 @@ function checkStudyProgress() {
     }
     if (changed) {
         saveState();
+        checkTargetUnlocks(); // Controlla sblocchi dopo aver appreso un talento
         if (state.activePage === 'profile') {
-            renderTalentTree();
+            renderTalentTree(); 
             if (state.activeProfileSection === 'talents' && currentOpenTalent) {
                 const talent = findTalentByName(currentOpenTalent);
                 if (talent) openTalentModal(currentOpenTalent, talent);
@@ -444,15 +459,49 @@ function checkStudyProgress() {
     }
 }
 
+// --- NUOVA FUNZIONE PER CONTROLLARE SBLOCCO TARGET ---
+function checkTargetUnlocks() {
+    let newlyDiscovered = false;
+    Object.values(worldTargets).forEach(target => {
+        if (state.discoveredTargets.includes(target.id)) {
+            return;
+        }
+
+        const allConditionsMet = target.unlock_conditions.every(condition => {
+            switch (condition.type) {
+                case 'PLAYER_LEVEL':
+                    return state.level >= condition.value;
+                case 'TALENT':
+                    const [talentName, levelStr] = condition.value.split('_LV');
+                    const requiredLevel = parseInt(levelStr, 10);
+                    return (state.unlocked[talentName] || 0) >= requiredLevel;
+                default:
+                    return false;
+            }
+        });
+
+        if (allConditionsMet) {
+            state.discoveredTargets.push(target.id);
+            newlyDiscovered = true;
+            console.log(`Nuovo target scoperto: ${target.name}!`);
+        }
+    });
+
+    if (newlyDiscovered && state.activePage === 'world') {
+        initWorldPage();
+    }
+}
+
+
 function init() {
     loadState();
     updateAllBonuses();
     updateUI();
-
+    
     document.querySelectorAll('nav .nav-btn').forEach(button => {
         button.addEventListener('click', () => switchPage(button.dataset.page));
     });
-
+    
     resetButton.addEventListener('click', resetState);
     switchPage(state.activePage || 'hq');
     initAdminPanel();
@@ -461,6 +510,9 @@ function init() {
         checkStudyProgress();
         if (typeof updateActiveAttacks === 'function') {
             updateActiveAttacks();
+        }
+        if (typeof updatePersonalComputer === 'function') {
+            updatePersonalComputer();
         }
     }, 1000);
 

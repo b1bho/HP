@@ -1,7 +1,6 @@
 /**
  * js/flow_validation.js
- * VERSIONE CORRETTA: Le interfacce dei blocchi sono state standardizzate
- * per un flusso di esecuzione e di dati coerente (alto->basso, sinistra->destra).
+ * VERSIONE CORRETTA: "Esegui port scan avanzato" ora emette anche una lista di IP filtrati per una connessione logica.
  */
 
 const dataTypes = {
@@ -34,11 +33,18 @@ const dataTypes = {
 
 function areTypesCompatible(outputType, inputType) {
     if (outputType === inputType) return true;
+    
     if (outputType.startsWith('List<') && inputType.startsWith('List<')) {
         const outGeneric = outputType.substring(5, outputType.length - 1);
         const inGeneric = inputType.substring(5, inputType.length - 1);
         return areTypesCompatible(outGeneric, inGeneric);
     }
+
+    if (inputType.startsWith('List<')) {
+        const inGeneric = inputType.substring(5, inputType.length - 1);
+        if (areTypesCompatible(outputType, inGeneric)) return true;
+    }
+    
     let currentOutputType = outputType;
     while (currentOutputType) {
         const parent = dataTypes[currentOutputType]?.parent;
@@ -100,7 +106,14 @@ const blockInterfaces = {
     'Scansione rete locale': { inputs: [{ type: 'ControlFlow', name: 'In' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'List<IPAddress>', name: 'IP List' }] },
     'Invia Email': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'EmailAddress', name: 'Recipient' }, { type: 'Text', name: 'Subject' }, { type: 'Text', name: 'Body' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
     'Costruisci firewall base': { inputs: [{ type: 'ControlFlow', name: 'In' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
-    'Esegui port scan avanzato': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'IPAddress', name: 'Target IP' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'List<Numeric>', name: 'Open Ports' }] },
+    'Esegui port scan avanzato': { 
+        inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<IPAddress>', name: 'Target IP List' }], 
+        outputs: [
+            { type: 'ControlFlow', name: 'Out' }, 
+            { type: 'List<IPAddress>', name: 'Filtered IP List' }, // IP che hanno risposto
+            { type: 'List<Numeric>', name: 'Open Ports' }
+        ] 
+    },
     'Mappa topologia di rete': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<IPAddress>', name: 'IPs' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Image', name: 'Map' }] },
     'Intercetta traffico di rete': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'NetworkTraffic', name: 'Captured Traffic' }] },
     'Deploy honeypot': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'System', name: 'Host' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
@@ -124,7 +137,12 @@ const blockInterfaces = {
     'Enumera tabelle database': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'List<Text>', name: 'Table Names' }] },
     'Bypassa autenticazione SQL': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Boolean', name: 'Success' }] },
     'Esfiltra intero database': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'DataPacket', name: 'Database Dump' }] },
-    'Salva IP raccolti': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<IPAddress>', name: 'IP List' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'LogFile', name: 'Saved Log' }] },
+    // --- MODIFICA CHIAVE QUI ---
+    'Salva IP raccolti': { 
+        inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<Target>', name: 'Target List' }], 
+        outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'LogFile', name: 'Saved Log' }] 
+    },
+    // --- FINE MODIFICA ---
     'Pulisci database (rimuovi tracce)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
     'Cerca Stringa in Archivio': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'DataPacket', name: 'Data' }, { type: 'Text', name: 'Search Term' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Boolean', name: 'Found' }] },
     'Filtra Dati per Attributo': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'StructuredData', name: 'Data' }, { type: 'Text', name: 'Filter' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'StructuredData', name: 'Filtered Data' }] },
