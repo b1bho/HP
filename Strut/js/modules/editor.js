@@ -1,10 +1,8 @@
 // File: js/modules/editor.js
-// VERSIONE AGGIORNATA con la nuova logica di validazione FC
+// VERSIONE AGGIORNATA: Aggiunta la logica per salvare, caricare, eliminare e visualizzare i flussi permanenti.
 
 let currentObjective = 'none';
 let currentFc = { score: 0, hints: [] };
-
-// --- CORE VALIDATION LOGIC ---
 
 function validateFlow() {
     const objective = flowObjectives[currentObjective];
@@ -14,12 +12,10 @@ function validateFlow() {
     let hints = [];
     let allRequiredInputsMet = true;
 
-    // Validazione 1: Controlla se tutti gli input richiesti sono collegati
     nodes.forEach(nodeEl => {
         const blockName = nodeEl.dataset.blockName;
         const blockInterface = blockInterfaces[blockName];
         if (!blockInterface) return;
-
         let hasError = false;
         blockInterface.inputs.forEach(inputDef => {
             if (inputDef.optional) return;
@@ -31,7 +27,6 @@ function validateFlow() {
                 hints.push({ text: `Input '${inputDef.name}' richiesto per il blocco '${blockName}' non è collegato.`, type: 'error' });
             }
         });
-        
         if(hasError) {
             nodeEl.classList.add('invalid');
         } else {
@@ -45,7 +40,6 @@ function validateFlow() {
         return;
     }
     
-    // Validazione 2: Completezza Funzionale
     if (!objective || currentObjective === 'none') {
         currentFc = { score: 100, hints: [{ text: "Nessun obiettivo selezionato, validazione non attiva.", type: "info" }] };
         updateFcUI();
@@ -56,32 +50,23 @@ function validateFlow() {
     let totalWeight = 0;
     hints = [];
 
-    // NUOVA LOGICA DI VALIDAZIONE FC
     for (const pfeKey in objective.pfe) {
         const rule = objective.pfe[pfeKey];
         if (rule.required) totalWeight += rule.weight;
-
         let requirementMet = false;
-
-        // Controlla se è una regola di percorso complesso
         if (rule.paths) {
-            // Itera su ogni possibile percorso valido
             for (const path of rule.paths) {
-                // Controlla se tutti i blocchi di questo percorso sono presenti nel flusso
                 const allCategoriesInPathFound = path.every(category =>
                     nodeNames.some(name => blockCategories[name] === category)
                 );
                 if (allCategoriesInPathFound) {
                     requirementMet = true;
-                    break; // Trovato un percorso valido, non serve controllare gli altri
+                    break;
                 }
             }
         } else {
-            // Logica precedente per le regole semplici (ora basata su pfeKey)
             requirementMet = nodeNames.some(name => blockCategories[name] === pfeKey);
         }
-
-        // Assegna punteggio e hint in base al risultato
         if (requirementMet) {
             score += rule.weight;
         } else if (rule.required) {
@@ -99,9 +84,6 @@ function validateFlow() {
     currentFc = { score: finalScore, hints: hints };
     updateFcUI();
 }
-
-
-// ... (Il resto del file rimane identico, lo includo per completezza)
 
 function updateFcUI() {
     const fcPanel = document.getElementById('fc-panel');
@@ -374,55 +356,86 @@ function populateHostSelector() {
     }
 }
 
+// --- FUNZIONI DI SALVATAGGIO/CARICAMENTO MODIFICATE ---
+
 function populateSavedFlowsDropdown() {
-    const savedFlowsDropdown = document.getElementById('saved-flows-dropdown');
-    if (!savedFlowsDropdown) return;
-    savedFlowsDropdown.innerHTML = '<option value="">Carica un Flusso...</option>';
-    Object.keys(state.savedFlows).forEach(flowName => {
-        savedFlowsDropdown.add(new Option(flowName, flowName));
-    });
+    const dropdown = document.getElementById('saved-flows-dropdown');
+    if (!dropdown) return;
+    dropdown.innerHTML = '<option value="">Carica un Flusso...</option>';
+
+    // Gruppo per i flussi di sessione
+    if (Object.keys(state.savedFlows).length > 0) {
+        const sessionGroup = document.createElement('optgroup');
+        sessionGroup.label = 'Flussi di Sessione';
+        Object.keys(state.savedFlows).forEach(flowName => {
+            const option = new Option(flowName, flowName);
+            option.dataset.type = 'session';
+            sessionGroup.appendChild(option);
+        });
+        dropdown.appendChild(sessionGroup);
+    }
+
+    // Gruppo per i flussi permanenti
+    if (Object.keys(state.permanentFlows).length > 0) {
+        const permanentGroup = document.createElement('optgroup');
+        permanentGroup.label = 'Flussi Permanenti';
+        Object.keys(state.permanentFlows).forEach(flowName => {
+            const option = new Option(flowName, flowName);
+            option.dataset.type = 'permanent';
+            permanentGroup.appendChild(option);
+        });
+        dropdown.appendChild(permanentGroup);
+    }
 }
 
-function saveFlow() {
-    const flowNameInput = document.getElementById('flow-name-input');
-    const hostSelect = document.getElementById('flow-host-select');
-    const flowName = flowNameInput.value.trim();
-    if (!flowName) { alert('Inserisci un nome per il flusso.'); return; }
-    const hostValue = hostSelect.value;
-    let hostData = {};
-    if (hostValue === 'personal') {
-        hostData = { type: 'personal', name: 'Computer Personale' };
-    } else if (hostValue.startsWith('clan-')) {
-        const serverId = parseInt(hostValue.replace('clan-', ''));
-        const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
-        if (server) {
-            hostData = { type: 'clan', serverId: server.id, name: `Server #${server.id}` };
-        }
-    }
+function getFlowData() {
     const canvas = document.getElementById('canvas');
     const nodesOnCanvas = Array.from(canvas.querySelectorAll('.canvas-node'));
     const nodesData = nodesOnCanvas.map(n => ({ id: n.id, name: n.dataset.blockName, x: n.offsetLeft, y: n.offsetTop }));
     const linesData = lines.map(l => ({ start: l.start.id, end: l.end.id }));
-    state.savedFlows[flowName] = {
+    
+    return {
         nodes: nodesData,
         lines: linesData,
         stats: calculateFlowStats(nodesOnCanvas),
-        host: hostData,
         objective: currentObjective,
         fc: currentFc.score
     };
+}
+
+function saveFlow() {
+    const flowNameInput = document.getElementById('flow-name-input');
+    const flowName = flowNameInput.value.trim();
+    if (!flowName) { alert('Inserisci un nome per il flusso.'); return; }
+
+    state.savedFlows[flowName] = getFlowData();
     saveState();
     populateSavedFlowsDropdown();
-    document.getElementById('saved-flows-dropdown').value = flowName;
-    alert(`Flusso "${flowName}" salvato su ${hostData.name}!`);
+    alert(`Flusso di sessione "${flowName}" salvato!`);
+}
+
+function saveFlowPermanently() {
+    const flowNameInput = document.getElementById('flow-name-input');
+    const flowName = flowNameInput.value.trim();
+    if (!flowName) { alert('Inserisci un nome per il flusso.'); return; }
+
+    state.permanentFlows[flowName] = getFlowData();
+    saveState(); // saveState ora gestisce entrambi i tipi di salvataggio
+    populateSavedFlowsDropdown();
+    alert(`Flusso permanente "${flowName}" salvato! Non verrà eliminato con il reset.`);
 }
 
 function loadFlow() {
-    const savedFlowsDropdown = document.getElementById('saved-flows-dropdown');
-    const flowName = savedFlowsDropdown.value;
+    const dropdown = document.getElementById('saved-flows-dropdown');
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    const flowName = selectedOption.value;
+    const flowType = selectedOption.dataset.type;
+
     if (!flowName) { alert('Seleziona un flusso da caricare.'); return; }
-    const flowData = state.savedFlows[flowName];
+
+    const flowData = flowType === 'permanent' ? state.permanentFlows[flowName] : state.savedFlows[flowName];
     if (!flowData) return;
+
     clearCanvas();
     flowData.nodes.forEach(nd => createNode(nd.name, nd.x, nd.y, nd.id));
     if (flowData.lines) {
@@ -444,17 +457,26 @@ function loadFlow() {
 }
 
 function deleteFlow() {
-    const savedFlowsDropdown = document.getElementById('saved-flows-dropdown');
-    const flowName = savedFlowsDropdown.value;
+    const dropdown = document.getElementById('saved-flows-dropdown');
+    const selectedOption = dropdown.options[dropdown.selectedIndex];
+    const flowName = selectedOption.value;
+    const flowType = selectedOption.dataset.type;
+
     if (!flowName) { alert('Seleziona un flusso da eliminare.'); return; }
+    
     if (confirm(`Eliminare il flusso "${flowName}"?`)) {
-        delete state.savedFlows[flowName];
+        if (flowType === 'permanent') {
+            delete state.permanentFlows[flowName];
+        } else {
+            delete state.savedFlows[flowName];
+        }
         saveState();
         populateSavedFlowsDropdown();
         const flowNameInput = document.getElementById('flow-name-input');
         if (flowNameInput.value === flowName) flowNameInput.value = '';
     }
 }
+
 
 function initEditorPage() {
     renderToolbox();
@@ -464,13 +486,14 @@ function initEditorPage() {
     updateCurrentFlowStatsUI();
     validateFlow();
 
-    const canvas = document.getElementById('canvas');
-    
+    // Aggiungi listener ai pulsanti
     document.getElementById('save-flow-button').addEventListener('click', saveFlow);
+    document.getElementById('save-flow-perm-button').addEventListener('click', saveFlowPermanently); // NUOVO
     document.getElementById('load-flow-button').addEventListener('click', loadFlow);
     document.getElementById('delete-flow-button').addEventListener('click', deleteFlow);
     document.getElementById('clear-connections-button').addEventListener('click', clearCanvas);
 
+    const canvas = document.getElementById('canvas');
     canvas.addEventListener('dragover', (e) => e.preventDefault());
     canvas.addEventListener('drop', (e) => {
         e.preventDefault();

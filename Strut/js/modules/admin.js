@@ -1,4 +1,5 @@
 // File: js/modules/admin.js
+// VERSIONE AGGIORNATA: Aggiunta la funzione per impostare un livello specifico.
 
 function setAdminValues() {
     const btc = parseInt(document.getElementById('admin-btc').value, 10);
@@ -56,22 +57,15 @@ function unlockAllMarketItems() {
     alert('Tutti gli oggetti del mercato sono stati sbloccati!');
 }
 
-/**
- * NUOVA FUNZIONE DI DEBUG: Resetta lo stato delle missioni.
- */
 function resetQuests() {
     if (!confirm('Sei sicuro di voler resettare lo stato di tutte le missioni? Le missioni completate e annullate torneranno disponibili.')) return;
 
-    // Svuota la lista delle missioni completate
     state.completedQuests = [];
-    // Rimuove eventuali Dati Intel legati a missioni
     state.intelItems = [];
-    // Rimuove tutte le missioni attive dalla bacheca per una pulizia completa
     state.activeQuests = [];
 
     saveState();
 
-    // Forza il sistema a generare un nuovo set di missioni
     if (typeof manageQuests === 'function') {
         manageQuests();
     }
@@ -79,14 +73,45 @@ function resetQuests() {
     alert('Stato delle missioni resettato!');
 }
 
+function adminLevelUp() {
+    const xpNeeded = state.xpToNextLevel - state.xp;
+    addXp(xpNeeded, 'player');
+    alert(`Livello aumentato a ${state.level}!`);
+    updateAdminPanelUI();
+}
+
+// --- NUOVA FUNZIONE ---
+function adminSetLevel() {
+    const targetLevelInput = document.getElementById('admin-level');
+    if (!targetLevelInput) return;
+
+    const targetLevel = parseInt(targetLevelInput.value, 10);
+    if (isNaN(targetLevel) || targetLevel <= state.level) {
+        alert("Inserisci un livello valido e superiore a quello attuale.");
+        return;
+    }
+
+    // Esegue il level up in sequenza per garantire che tutti i bonus vengano assegnati
+    while (state.level < targetLevel) {
+        const xpNeeded = state.xpToNextLevel - state.xp;
+        addXp(xpNeeded, 'player');
+    }
+
+    alert(`Livello impostato a ${state.level}!`);
+    updateAdminPanelUI(); // Aggiorna il valore nel campo di input
+}
+// --- FINE NUOVA FUNZIONE ---
 
 function updateAdminPanelUI() {
     const adminBtcInput = document.getElementById('admin-btc');
     const adminXmrInput = document.getElementById('admin-xmr');
     const adminTalentsInput = document.getElementById('admin-talents');
+    const adminLevelInput = document.getElementById('admin-level');
+
     if(adminBtcInput) adminBtcInput.value = state.btc;
     if(adminXmrInput) adminXmrInput.value = state.xmr;
     if(adminTalentsInput) adminTalentsInput.value = state.talentPoints;
+    if(adminLevelInput) adminLevelInput.value = state.level;
 }
 
 function initAdminPanel() {
@@ -110,9 +135,20 @@ function initAdminPanel() {
                 <input type="number" id="admin-talents" class="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white">
             </div>
             <button id="admin-set-values" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-700">Imposta Valori</button>
+            
+            <!-- NUOVA SEZIONE LIVELLO -->
+            <div>
+                <label for="admin-level" class="block text-sm font-medium text-gray-300">Livello Giocatore</label>
+                <div class="flex gap-2">
+                    <input type="number" id="admin-level" class="w-full bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-white" placeholder="Livello">
+                    <button id="admin-set-level" class="px-3 py-1 text-xs font-semibold rounded-md bg-teal-600 hover:bg-teal-700">Imposta</button>
+                </div>
+            </div>
+            <button id="admin-level-up" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-cyan-600 hover:bg-cyan-700">Aumenta Livello (+1)</button>
+            <!-- FINE NUOVA SEZIONE -->
+
             <button id="admin-unlock-talents" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-green-600 hover:bg-green-700">Sblocca Tutti i Talenti</button>
             <button id="admin-unlock-market" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-yellow-600 hover:bg-yellow-700 text-gray-900">Sblocca Tutto il Mercato</button>
-            <!-- NUOVO PULSANTE -->
             <button id="admin-reset-quests" class="w-full px-4 py-2 text-sm font-medium rounded-md bg-purple-600 hover:bg-purple-700">Reset Missioni</button>
         </div>
     `;
@@ -121,8 +157,10 @@ function initAdminPanel() {
     document.getElementById('admin-set-values').addEventListener('click', setAdminValues);
     document.getElementById('admin-unlock-talents').addEventListener('click', unlockAllTalents);
     document.getElementById('admin-unlock-market').addEventListener('click', unlockAllMarketItems);
-    // NUOVO LISTENER
     document.getElementById('admin-reset-quests').addEventListener('click', resetQuests);
+    document.getElementById('admin-level-up').addEventListener('click', adminLevelUp);
+    // NUOVO LISTENER
+    document.getElementById('admin-set-level').addEventListener('click', adminSetLevel);
     
     updateAdminPanelUI();
 }

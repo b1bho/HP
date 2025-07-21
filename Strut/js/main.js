@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE AGGIORNATA: Aggiunto stato per sblocco mondo, target scoperti e computer personale.
+// VERSIONE AGGIORNATA: Corretta l'inizializzazione degli slot del computer per renderli indipendenti.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -22,21 +22,13 @@ let state = {
         realIp: "87.15.22.113",
         isIpDynamic: true,
     },
-    // --- NUOVE VARIABILI DI STATO ---
     isWorldUnlocked: false,
-    discoveredTargets: [], // Array di ID dei target visibili al giocatore
+    discoveredTargets: [],
     personalComputer: {
         slots: 5,
-        // Ogni slot può contenere il nome del flusso e il suo stato (es. 'idle', 'running')
-        attachedFlows: [
-            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
-            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
-            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
-            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
-            { flowName: null, status: 'idle', startTime: 0, duration: 0 },
-        ]
+        // CORREZIONE: Crea 5 oggetti unici invece di 5 riferimenti allo stesso oggetto.
+        attachedFlows: Array.from({ length: 5 }, () => ({ flowName: null, status: 'idle', startTime: 0, duration: 0 })),
     },
-    // --- FINE NUOVE VARIABILI ---
     storage: {
         personalMax: 100,
         personalUsed: 0
@@ -52,6 +44,7 @@ let state = {
     activePage: 'hq',
     activeProfileSection: 'talents',
     savedFlows: {},
+    permanentFlows: {}, // Per i flussi che non vengono resettati
     ownedHardware: {},
     purchasedServices: {},
     clan: null,
@@ -83,11 +76,70 @@ const talentPointsEl = document.getElementById('talent-points');
 const resetButton = document.getElementById('reset-button');
 const navButtons = document.querySelectorAll('.nav-btn');
 
-// --- FUNZIONI DI UTILITÀ PER IP ---
+// --- FUNZIONI DI GESTIONE STATO MODIFICATE ---
+
+function saveState() {
+    const { permanentFlows, ...gameState } = state;
+    localStorage.setItem('hackerAppState', JSON.stringify(gameState));
+    localStorage.setItem('hackerAppPermanentFlows', JSON.stringify(permanentFlows));
+}
+
+function loadState() {
+    const savedState = localStorage.getItem('hackerAppState');
+    const savedPermanentFlows = localStorage.getItem('hackerAppPermanentFlows');
+
+    if (savedState) {
+        try {
+            const loadedState = JSON.parse(savedState);
+            state = deepMerge(state, loadedState);
+        } catch (e) {
+            console.error("Errore nel parsing dello stato di gioco, reset in corso.", e);
+            localStorage.removeItem('hackerAppState');
+        }
+    }
+    
+    if (savedPermanentFlows) {
+        try {
+            state.permanentFlows = JSON.parse(savedPermanentFlows);
+        } catch (e) {
+            console.error("Errore nel parsing dei flussi permanenti.", e);
+            localStorage.removeItem('hackerAppPermanentFlows');
+        }
+    }
+    initializeDynamicState();
+}
+
+function resetState() {
+    if (confirm('Sei sicuro di voler resettare tutti i progressi? I flussi salvati come "permanenti" non verranno eliminati.')) {
+        localStorage.removeItem('hackerAppState');
+        window.location.reload();
+    }
+}
+
+// (Il resto del file main.js rimane invariato)
+function isObject(item) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+}
+function deepMerge(target, source) {
+    const output = { ...target };
+    if (isObject(target) && isObject(source)) {
+        Object.keys(source).forEach(key => {
+            if (isObject(source[key])) {
+                if (key in target && isObject(target[key])) {
+                    output[key] = deepMerge(target[key], source[key]);
+                } else {
+                    output[key] = source[key];
+                }
+            } else {
+                output[key] = source[key];
+            }
+        });
+    }
+    return output;
+}
 function generateRandomIp() {
     return `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 }
-
 function refreshVpnIp(serviceId) {
     let serviceData, serviceState;
     let isClanService = false;
@@ -150,8 +202,6 @@ function refreshVpnIp(serviceId) {
         if (state.activePage === 'profile' && state.activeProfileSection === 'clan') renderClanSection();
     }
 }
-
-
 async function updateBTCValue() {
     try {
         const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
@@ -168,48 +218,6 @@ async function updateBTCValue() {
         if (state.activePage === 'hq') renderQuestBoard();
     }
 }
-
-function saveState() {
-    localStorage.setItem('hackerAppState', JSON.stringify(state));
-}
-
-function isObject(item) {
-    return (item && typeof item === 'object' && !Array.isArray(item));
-}
-
-function deepMerge(target, source) {
-    const output = { ...target };
-    if (isObject(target) && isObject(source)) {
-        Object.keys(source).forEach(key => {
-            if (isObject(source[key])) {
-                if (key in target && isObject(target[key])) {
-                    output[key] = deepMerge(target[key], source[key]);
-                } else {
-                    output[key] = source[key];
-                }
-            } else {
-                output[key] = source[key];
-            }
-        });
-    }
-    return output;
-}
-
-function loadState() {
-    const savedState = localStorage.getItem('hackerAppState');
-    if (savedState) {
-        try {
-            const loadedState = JSON.parse(savedState);
-            state = deepMerge(state, loadedState);
-        } catch (e) {
-            console.error("Errore nel parsing dello stato salvato, reset in corso.", e);
-            localStorage.removeItem('hackerAppState');
-        }
-    }
-    initializeDynamicState();
-}
-
-
 function initializeDynamicState() {
     if (!state.identity.realIp) {
         state.identity.realIp = generateRandomIp();
@@ -233,24 +241,12 @@ function initializeDynamicState() {
         }
     }
 }
-
-
-function resetState() {
-    if (confirm('Sei sicuro di voler resettare tutti i progressi? Questa azione è irreversibile.')) {
-        localStorage.removeItem('hackerAppState');
-        window.location.reload();
-    }
-}
-
 function destroyLines() {
     lines.forEach(line => line.remove());
     lines = [];
 }
-
 async function switchPage(pageName) {
     if (!pageName) return;
-
-    // --- NUOVA LOGICA DI BLOCCO PAGINA MONDO ---
     if (pageName === 'world' && !state.isWorldUnlocked) {
         appContainer.innerHTML = `
             <div class="text-center p-10">
@@ -259,12 +255,9 @@ async function switchPage(pageName) {
                 <p class="text-lg text-gray-400">Esegui una "Scansione Internet" dal tuo computer nell'HQ per mappare i primi obiettivi.</p>
             </div>
         `;
-        // Deseleziona tutti i pulsanti e non procedere oltre
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         return;
     }
-    // --- FINE LOGICA DI BLOCCO ---
-
     state.activePage = pageName;
     destroyLines();
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -289,17 +282,14 @@ async function switchPage(pageName) {
     }
     saveState();
 }
-
 function updateUI() {
     btcBalanceEl.textContent = state.btc.toFixed(6);
     xmrBalanceEl.textContent = state.xmr;
     talentPointsEl.textContent = state.talentPoints;
-
     const btcValueEl = document.getElementById('btc-value');
     if (btcValueEl) {
         btcValueEl.textContent = `$${state.btcValueInUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-
     const playerLevelEl = document.getElementById('player-level');
     const playerXpEl = document.getElementById('player-xp');
     const playerXpNextEl = document.getElementById('player-xp-next');
@@ -326,7 +316,6 @@ function updateUI() {
         updateAdminPanelUI();
     }
 }
-
 function addXp(amount, target = 'player') {
     if (target === 'player') {
         state.xp += amount;
@@ -348,9 +337,8 @@ function addXp(amount, target = 'player') {
         }
     }
     updateUI();
-    checkTargetUnlocks(); // Controlla se si sbloccano nuovi target dopo aver guadagnato XP/livelli
+    checkTargetUnlocks();
 }
-
 function updateAllBonuses() {
     state.hardwareBonuses = { studyTimeModifier: 1, toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 } };
     state.clanBonuses = { studyTimeModifier: 1, toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 } };
@@ -383,7 +371,6 @@ function updateAllBonuses() {
         }
     }
 }
-
 function updateClanEcosystemScore() {
     if (!state.clan) return;
     let securityScore = 0;
@@ -415,7 +402,6 @@ function updateClanEcosystemScore() {
         renderClanSection();
     }
 }
-
 function findTalentByName(talentName) {
     for (const branchName in talentData) {
         if (talentData[branchName].talents[talentName]) {
@@ -424,7 +410,6 @@ function findTalentByName(talentName) {
     }
     return null;
 }
-
 function checkStudyProgress() {
     let changed = false;
     const talentModal = document.getElementById('talent-modal');
@@ -445,7 +430,7 @@ function checkStudyProgress() {
     }
     if (changed) {
         saveState();
-        checkTargetUnlocks(); // Controlla sblocchi dopo aver appreso un talento
+        checkTargetUnlocks();
         if (state.activePage === 'profile') {
             renderTalentTree(); 
             if (state.activeProfileSection === 'talents' && currentOpenTalent) {
@@ -458,15 +443,12 @@ function checkStudyProgress() {
         }
     }
 }
-
-// --- NUOVA FUNZIONE PER CONTROLLARE SBLOCCO TARGET ---
 function checkTargetUnlocks() {
     let newlyDiscovered = false;
     Object.values(worldTargets).forEach(target => {
         if (state.discoveredTargets.includes(target.id)) {
             return;
         }
-
         const allConditionsMet = target.unlock_conditions.every(condition => {
             switch (condition.type) {
                 case 'PLAYER_LEVEL':
@@ -479,33 +461,26 @@ function checkTargetUnlocks() {
                     return false;
             }
         });
-
         if (allConditionsMet) {
             state.discoveredTargets.push(target.id);
             newlyDiscovered = true;
             console.log(`Nuovo target scoperto: ${target.name}!`);
         }
     });
-
     if (newlyDiscovered && state.activePage === 'world') {
         initWorldPage();
     }
 }
-
-
 function init() {
     loadState();
     updateAllBonuses();
     updateUI();
-    
     document.querySelectorAll('nav .nav-btn').forEach(button => {
         button.addEventListener('click', () => switchPage(button.dataset.page));
     });
-    
     resetButton.addEventListener('click', resetState);
     switchPage(state.activePage || 'hq');
     initAdminPanel();
-
     setInterval(() => {
         checkStudyProgress();
         if (typeof updateActiveAttacks === 'function') {
@@ -515,24 +490,20 @@ function init() {
             updatePersonalComputer();
         }
     }, 1000);
-
     initQuestSystem();
     setInterval(() => {
         if (typeof manageQuests === 'function') {
             manageQuests();
         }
     }, QUEST_CHECK_INTERVAL_MS);
-
     setInterval(() => {
         if (typeof updateNewsTicker === 'function') {
             updateNewsTicker();
         }
     }, NEWS_TICKER_INTERVAL_MS);
-
     updateBTCValue();
     setInterval(() => {
         updateBTCValue();
     }, BTC_VALUE_UPDATE_INTERVAL_MS);
 }
-
 document.addEventListener('DOMContentLoaded', init);

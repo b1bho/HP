@@ -1,5 +1,5 @@
 // File: js/modules/hq.js
-// VERSIONE AGGIORNATA: Aggiunta la gestione del computer personale e l'esecuzione dei flussi.
+// VERSIONE AGGIORNATA: Corretta la logica di aggiornamento in tempo reale della UI del computer.
 
 const MAX_NEWS_ITEMS = 5;
 
@@ -82,8 +82,6 @@ function renderHqPage() {
     });
 }
 
-// --- NUOVE FUNZIONI PER IL COMPUTER PERSONALE ---
-
 function renderPersonalComputer() {
     const container = document.getElementById('personal-computer-slots');
     if (!container) return;
@@ -140,7 +138,6 @@ function renderPersonalComputer() {
 
     container.innerHTML = slotsHTML;
 
-    // Aggiungi event listener
     container.querySelectorAll('.attach-flow-btn').forEach(btn => btn.addEventListener('click', attachFlowToPersonalComputer));
     container.querySelectorAll('.detach-flow-btn').forEach(btn => btn.addEventListener('click', detachFlowFromPersonalComputer));
     container.querySelectorAll('.execute-flow-btn').forEach(btn => btn.addEventListener('click', executeFlowFromPersonalComputer));
@@ -172,7 +169,6 @@ function executeFlowFromPersonalComputer(event) {
 
     if (!flow) return;
 
-    // Logica speciale per la Scansione Globale
     if (slotIndex === 0 && !state.isWorldUnlocked) {
         if (flow.objective === 'reconnaissance' && flow.fc >= 80) {
             slot.status = 'running';
@@ -185,43 +181,44 @@ function executeFlowFromPersonalComputer(event) {
         }
         return;
     }
-
-    // (Qui andrà la logica per altri tipi di flussi in background, se necessaria)
+    
     alert("Questa funzionalità di esecuzione in background è in fase di sviluppo.");
 }
 
 function updatePersonalComputer() {
     let needsRender = false;
+    
+    // Controlla se c'è almeno un flusso in esecuzione per decidere se ridisegnare
+    const isAnyFlowRunning = state.personalComputer.attachedFlows.some(slot => slot.status === 'running');
+
     state.personalComputer.attachedFlows.forEach((slot, index) => {
         if (slot.status === 'running' && Date.now() - slot.startTime >= slot.duration) {
-            // Flusso completato
             slot.status = 'idle';
             needsRender = true;
 
-            // Logica di completamento per la Scansione Globale
             if (index === 0 && !state.isWorldUnlocked) {
                 state.isWorldUnlocked = true;
-                // Sblocca tutti i target di Tier 1
                 state.discoveredTargets = Object.values(worldTargets)
                     .filter(t => t.tier === 1)
                     .map(t => t.id);
                 alert("Scansione Globale completata! La Pagina del Mondo è ora accessibile. Hai mappato i primi target di basso livello.");
-                // Ricarica la pagina HQ per aggiornare lo stato
                 switchPage('hq');
             }
-            // (Aggiungere qui la logica per altri flussi)
         }
     });
 
-    if (needsRender) {
-        saveState();
+    // Se un flusso è in esecuzione O se un flusso è appena terminato, ridisegna
+    if (isAnyFlowRunning || needsRender) {
         if (state.activePage === 'hq') {
             renderPersonalComputer();
         }
     }
+    
+    if (needsRender) {
+        saveState();
+    }
 }
 
-// --- FINE NUOVE FUNZIONI ---
 
 function updateNewsTicker() {
     if (state.activePage !== 'hq') return;
@@ -265,7 +262,7 @@ function initHqPage() {
     renderHqPage();
     renderQuestBoard();
     renderNewsTicker();
-    renderPersonalComputer(); // Aggiunta chiamata
+    renderPersonalComputer();
 
     const intelBtn = document.getElementById('goto-intel-console-btn');
     if (intelBtn) {
