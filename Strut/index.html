@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hacker Tycoon - Rise of the Root</title>
-    <!-- Librerie Esterne -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -12,18 +11,17 @@
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Stili Personalizzati -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-gray-900 text-gray-200">
 
-    <!-- Header e Navigazione Globale -->
     <header class="bg-gray-800/80 backdrop-blur-sm p-4 rounded-lg shadow-lg flex justify-between items-center sticky top-4 mx-4 z-50 border border-gray-700">
         <h1 class="text-2xl font-bold tracking-tight text-white">Hacker Tycoon</h1>
         
         <nav class="flex justify-center items-center gap-4 md:gap-6">
             <button data-page="hq" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-desktop mr-2"></i>HQ</button>
             <button data-page="world" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-globe-americas mr-2"></i>Mondo</button>
+            <button data-page="botnet" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-network-wired mr-2"></i>Botnet</button>
             <button data-page="editor" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-project-diagram mr-2"></i>Editor</button>
             <button data-page="market" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-store mr-2"></i>Mercato</button>
             <button data-page="profile" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-user-circle mr-2"></i>Profilo</button>
@@ -52,23 +50,16 @@
         </div>
     </header>
 
-    <!-- Contenitore principale dove verranno caricate le pagine -->
     <main id="app-container" class="p-4 sm:p-6 md:p-8 mt-4">
-        <!-- Le pagine vengono caricate qui -->
-    </main>
+        </main>
 
-    <!-- Modali Globali -->
     <div id="talent-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[51]"></div>
     <div id="attack-report-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[51]"></div>
     <div id="storage-choice-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[60]"></div>
     <div id="admin-panel" class="fixed bottom-4 right-4 bg-gray-900/80 backdrop-blur-sm border border-indigo-500 rounded-lg p-4 shadow-2xl z-[100] w-80 transition-transform duration-300 translate-x-full"></div>
 
-    <!-- NUOVO: Contenitore Notifiche -->
-    <div id="notification-container" class="fixed bottom-4 right-4 w-80 space-y-3 z-[200]">
-        <!-- Le notifiche verranno inserite qui da JS -->
-    </div>
+    <div id="notification-container" class="fixed bottom-4 right-4 w-80 space-y-3 z-[200]"></div>
 
-    <!-- Script dell'Applicazione -->
     <script src="js/world_data.js"></script>
     <script src="js/world_targets_data.js"></script>
     <script src="js/flow_logic.js"></script>
@@ -87,6 +78,7 @@
     <script src="js/modules/dark_market.js"></script>
     <script src="js/modules/intelligence.js"></script>
     <script src="js/modules/hq.js"></script>
+    <script src="js/modules/botnet.js"></script>
 
     <script src="js/main.js"></script>
 

@@ -1,5 +1,5 @@
 // File: js/modules/active_attacks.js
-// VERSIONE AGGIORNATA: La tracciabilità dell'IP di origine ora dipende dall'anonimato della catena di routing.
+// VERSIONE AGGIORNATA: La risoluzione degli attacchi ora può generare e aggiungere host infetti al pool.
 
 function updateActiveAttacks() {
     if (state.activePage !== 'world') {
@@ -13,28 +13,23 @@ function updateActiveAttacks() {
 function renderActiveAttacksPanel() {
     const container = document.getElementById('active-attacks-grid-container');
     if (!container) return;
-
     if (!state.activeAttacks || state.activeAttacks.length === 0) {
         container.innerHTML = `<p class="text-gray-500 italic col-span-full">Nessuna operazione in corso.</p>`;
         return;
     }
-
     const expandedAttacks = new Set();
     container.querySelectorAll('.operation-card.expanded').forEach(card => {
         expandedAttacks.add(card.dataset.attackId);
     });
-
     let attacksHTML = state.activeAttacks.map(attack => {
         const elapsedTime = (Date.now() - attack.startTime) / 1000;
         const remainingTime = Math.max(0, attack.finalTime - elapsedTime);
         const progressPercentage = Math.min(100, (elapsedTime / attack.finalTime) * 100);
-
         const currentQuantity = Math.floor((attack.target.rewardScale || 0) * (progressPercentage / 100));
         const currentPurity = 60 + (38 * (progressPercentage / 100));
         const xmrCost = Math.max(1, Math.ceil(2 + (remainingTime / 300)));
         const timeString = new Date(remainingTime * 1000).toISOString().substr(11, 8);
         const isExpanded = expandedAttacks.has(attack.id);
-
         return `
             <div class="operation-card bg-gray-900/80 backdrop-blur-sm border border-orange-500 rounded-lg shadow-2xl pointer-events-auto ${isExpanded ? 'expanded' : ''}" data-attack-id="${attack.id}">
                 <div class="compact-view p-3 cursor-pointer flex items-center gap-4">
@@ -77,9 +72,7 @@ function renderActiveAttacksPanel() {
             </div>
         `;
     }).join('');
-
     container.innerHTML = attacksHTML;
-
     container.querySelectorAll('.compact-view').forEach(el => {
         el.addEventListener('click', (e) => {
             const card = e.target.closest('.operation-card');
@@ -87,7 +80,6 @@ function renderActiveAttacksPanel() {
             card.querySelector('.expand-icon').classList.toggle('rotate-180');
         });
     });
-
     container.querySelectorAll('.stop-attack-btn').forEach(btn => {
         btn.addEventListener('click', () => stopAttack(btn.dataset.attackId));
     });
@@ -96,7 +88,6 @@ function renderActiveAttacksPanel() {
     });
 }
 
-// --- FUNZIONE MODIFICATA ---
 function handleAttackConsequences(attack, successRatio, effectiveStats) {
     const failureSeverity = 1 - successRatio;
     if (failureSeverity <= 0) return;
@@ -109,31 +100,39 @@ function handleAttackConsequences(attack, successRatio, effectiveStats) {
     traceIncrease += (attack.target.tier || 1) * 5;
     traceIncrease = Math.max(5, Math.ceil(traceIncrease));
 
-    // Aumenta lo score di tracciabilità per i nodi della catena di routing
+    const getNodeInfo = (nodeId) => {
+        if (networkNodeData[nodeId]) return networkNodeData[nodeId];
+        const personalService = marketData.networkServices.find(s => s.id === nodeId);
+        if (personalService) return { ...personalService, currentIp: state.purchasedServices[nodeId]?.currentIp };
+        if (nodeId.startsWith('c_vpn_t') && state.clan?.infrastructure.c_vpn) {
+            const tier = state.clan.infrastructure.c_vpn.tier - 1;
+            return { ...marketData.clanInfrastructure.c_vpn.tiers[tier], currentIp: state.clan.infrastructure.c_vpn.currentIp };
+        }
+        return null;
+    };
+
     attack.routingChain.forEach(nodeId => {
-        const node = networkNodeData[nodeId] || marketData.networkServices.find(s => s.id === nodeId);
-        if (node && node.ipAddress) {
-            if (!state.ipTraceability[node.ipAddress]) state.ipTraceability[node.ipAddress] = 0;
-            state.ipTraceability[node.ipAddress] = Math.min(100, state.ipTraceability[node.ipAddress] + traceIncrease);
+        const node = getNodeInfo(nodeId);
+        const ip = node?.currentIp || node?.ipAddress;
+        if (ip) {
+            if (!state.ipTraceability[ip]) state.ipTraceability[ip] = 0;
+            state.ipTraceability[ip] = Math.min(100, state.ipTraceability[ip] + traceIncrease);
         }
     });
 
-    // Simula il tracciamento all'indietro per vedere se l'IP di origine viene scoperto
     let traceSuccessful = true;
     for (const nodeId of [...attack.routingChain].reverse()) {
-        const node = networkNodeData[nodeId] || marketData.networkServices.find(s => s.id === nodeId);
+        const node = getNodeInfo(nodeId);
         if (node) {
-            // Più alto l'anonimato, più alta la probabilità di bloccare la traccia
-            const chanceToBlockTrace = (node.anonymity * 5) / 100; // Es: 10 AN = 50% chance
+            const chanceToBlockTrace = (node.anonymity * 5) / 100;
             if (Math.random() < chanceToBlockTrace) {
                 traceSuccessful = false;
                 showNotification(`La traccia dell'attacco è stata bloccata dal nodo: ${node.name}`, 'info');
-                break; // La traccia è stata interrotta
+                break;
             }
         }
     }
 
-    // Se la traccia ha superato l'intera catena, l'IP di origine è compromesso
     if (traceSuccessful) {
         let sourceIp = state.identity.realIp;
         if (attack.host && attack.host.type === 'clan') {
@@ -205,6 +204,38 @@ function resolveAttack(attack, progressPercentage) {
         addXp(xpGain, 'clan');
     }
 
+    // --- NUOVA LOGICA DI ACQUISIZIONE HOST ---
+    const objective = flowObjectives[attack.flowObjective];
+    let infectionType = null;
+    let hostsToInfect = 0;
+
+    if (objective.pfe.c2) infectionType = 'Backdoor';
+    if (objective.pfe.bot_component) infectionType = 'BotnetAgent';
+    if (objective.pfe.replication) infectionType = 'WormAgent';
+    
+    if (infectionType) {
+        hostsToInfect = Math.ceil(effectiveStats.eo / 2 * successRatio);
+        for(let i = 0; i < hostsToInfect; i++) {
+            const newHost = {
+                id: `host-${Date.now()}-${i}`,
+                ipAddress: generateRandomIp(),
+                location: attack.nationName || 'Sconosciuta',
+                status: 'Active',
+                infectionType: infectionType,
+                stabilityScore: Math.min(99, effectiveStats.rc * 20),
+                traceabilityScore: 10 + effectiveStats.rl,
+                resources: {
+                    cpuPower: parseFloat((1 + Math.random() * effectiveStats.eo).toFixed(2)),
+                    bandwidth: 100 + Math.floor(Math.random() * 900)
+                },
+                lastContact: Date.now()
+            };
+            state.infectedHostPool.push(newHost);
+        }
+        showNotification(`${hostsToInfect} nuovo/i host infetti con ${infectionType} aggiunti al tuo pool!`, 'success');
+    }
+    // --- FINE LOGICA ---
+
     const performance = (effectiveStats.rc / req.rc + effectiveStats.lcs / req.lcs) / 2;
     const quantity = Math.floor(attack.target.rewardScale * successRatio * (progressPercentage / 100));
     const purity = Math.min(100, (60 + (performance - 1) * 40 + (req.rl - effectiveStats.rl) * 2) * successRatio * (progressPercentage / 100));
@@ -220,7 +251,7 @@ function resolveAttack(attack, progressPercentage) {
 
     if (dataPacket.quantity > 0) {
         showStorageChoiceModal(dataPacket);
-    } else {
+    } else if (hostsToInfect === 0) {
         alert('Operazione completata con successo parziale, ma la qualità del flusso non è stata sufficiente per estrarre dati di valore.');
     }
 }

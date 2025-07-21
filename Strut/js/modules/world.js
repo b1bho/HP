@@ -1,5 +1,5 @@
 // File: js/modules/world.js
-// VERSIONE AGGIORNATA: La UI della catena di routing ora mostra l'IP di origine corretto.
+// VERSIONE AGGIORNATA: Aggiunge l'obiettivo del flusso all'oggetto dell'attacco.
 
 let selectedNation = null;
 let selectedTarget = null;
@@ -295,7 +295,6 @@ function renderAttackSection(panel) {
     updateRoutingSummaryUI();
     renderRoutingChain();
     panel.querySelector('#launch-attack-button').addEventListener('click', launchAttack);
-    // --- NUOVO EVENT LISTENER ---
     panel.querySelector('#flow-select').addEventListener('change', renderRoutingChain);
 }
 
@@ -318,7 +317,7 @@ function populateAvailableNodes() {
         const clanVpnTier = state.clan.infrastructure.c_vpn.tier;
         const vpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier - 1];
         if (vpnData) {
-            const clanVpnNodeId = `c_vpn_t${clanVpnTier}`; 
+            const clanVpnNodeId = vpnData.id;
             container.appendChild(createNodeElement(clanVpnNodeId, vpnData));
         }
     }
@@ -348,7 +347,7 @@ function createNodeElement(nodeId, nodeData) {
             <p class="font-bold text-sm">${nodeData.name}</p>
             <span class="font-mono text-xs text-gray-500">${ip}</span>
         </div>
-        <p class="text-xs text-gray-400">${nodeData.type} - ${nodeData.location}</p>
+        <p class="text-xs text-gray-400">${nodeData.type || 'N/A'} - ${nodeData.location}</p>
         <div class="trace-bar-bg mt-2">
             <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
         </div>
@@ -402,13 +401,11 @@ function setupDragAndDrop() {
     });
 }
 
-// --- FUNZIONE MODIFICATA ---
 function renderRoutingChain() {
     const slots = document.querySelectorAll('.routing-slot');
     const ipPathContainer = document.getElementById('routing-ip-path');
     if (!ipPathContainer) return;
 
-    // Determina l'IP di origine in base al flusso selezionato
     const flowSelect = document.getElementById('flow-select');
     let sourceIp = state.identity.realIp;
     let sourceIpLabel = `<span class="font-mono text-gray-400">${sourceIp}</span>`;
@@ -449,7 +446,7 @@ function renderRoutingChain() {
                     <p class="font-bold text-sm text-white">${node.data.name}</p>
                     <span class="font-mono text-xs text-gray-400">${ip}</span>
                 </div>
-                <p class="text-xs text-gray-400">${node.data.type} - ${node.data.location}</p>
+                <p class="text-xs text-gray-400">${node.data.type || 'N/A'} - ${node.data.location}</p>
                 <div class="trace-bar-bg mt-2">
                     <div class="trace-bar-fill ${traceColorClass}" style="width: ${traceScore}%" title="Tracciabilità: ${traceScore}%"></div>
                 </div>
@@ -511,6 +508,7 @@ function updateRoutingSummaryUI() {
     launchBtn.disabled = currentRoutingChain.filter(n => n).length === 0;
 }
 
+// --- FUNZIONE MODIFICATA ---
 function launchAttack() {
     const flowName = document.getElementById('flow-select').value;
     const activeNodes = currentRoutingChain.filter(n => n);
@@ -550,6 +548,7 @@ function launchAttack() {
         host: flow.host,
         flowStats: finalFlowStats,
         flowFc: flow.fc,
+        flowObjective: flow.objective, // Aggiunto per la logica di infezione
         routingChain: activeNodes.map(n => n.id)
     };
 

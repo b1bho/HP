@@ -1,6 +1,6 @@
 /**
  * js/flow_validation.js
- * VERSIONE CORRETTA: "Esegui port scan avanzato" ora emette anche una lista di IP filtrati per una connessione logica.
+ * VERSIONE CORRETTA: Aggiunta interfaccia per "Sviluppa Modulo Malware (AI)" e modificato "Automatizza deploy tool".
  */
 
 const dataTypes = {
@@ -54,7 +54,6 @@ function areTypesCompatible(outputType, inputType) {
     return false;
 }
 
-// Interfacce corrette con flusso di controllo coerente
 const blockInterfaces = {
     'Punto di Ingresso (Target)': {
         inputs: [],
@@ -101,7 +100,7 @@ const blockInterfaces = {
     'Compila pacchetto eseguibile': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Script', name: 'Source' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Executable', name: 'Compiled File' }] },
     'Crea tool eseguibile': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Script', name: 'Source' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Executable', name: 'Tool' }] },
     'Ottimizza performance tool': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Payload', name: 'Tool' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Payload', name: 'Optimized Tool' }] },
-    'Automatizza deploy tool': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }, { type: 'Payload', name: 'Tool' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
+    'Automatizza deploy tool': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<Target>', name: 'Target List' }, { type: 'Payload', name: 'Tool' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] }, // CORRETTO
     'Analizza traffico di rete (base)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'NetworkTraffic', name: 'Traffic' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'StructuredData', name: 'Packets' }] },
     'Scansione rete locale': { inputs: [{ type: 'ControlFlow', name: 'In' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'List<IPAddress>', name: 'IP List' }] },
     'Invia Email': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'EmailAddress', name: 'Recipient' }, { type: 'Text', name: 'Subject' }, { type: 'Text', name: 'Body' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
@@ -110,7 +109,7 @@ const blockInterfaces = {
         inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<IPAddress>', name: 'Target IP List' }], 
         outputs: [
             { type: 'ControlFlow', name: 'Out' }, 
-            { type: 'List<IPAddress>', name: 'Filtered IP List' }, // IP che hanno risposto
+            { type: 'List<IPAddress>', name: 'Filtered IP List' },
             { type: 'List<Numeric>', name: 'Open Ports' }
         ] 
     },
@@ -137,12 +136,7 @@ const blockInterfaces = {
     'Enumera tabelle database': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'List<Text>', name: 'Table Names' }] },
     'Bypassa autenticazione SQL': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Boolean', name: 'Success' }] },
     'Esfiltra intero database': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'DataPacket', name: 'Database Dump' }] },
-    // --- MODIFICA CHIAVE QUI ---
-    'Salva IP raccolti': { 
-        inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<Target>', name: 'Target List' }], 
-        outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'LogFile', name: 'Saved Log' }] 
-    },
-    // --- FINE MODIFICA ---
+    'Salva IP raccolti': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'List<Target>', name: 'Target List' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'LogFile', name: 'Saved Log' }] },
     'Pulisci database (rimuovi tracce)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }] },
     'Cerca Stringa in Archivio': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'DataPacket', name: 'Data' }, { type: 'Text', name: 'Search Term' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Boolean', name: 'Found' }] },
     'Filtra Dati per Attributo': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'StructuredData', name: 'Data' }, { type: 'Text', name: 'Filter' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'StructuredData', name: 'Filtered Data' }] },
@@ -162,4 +156,5 @@ const blockInterfaces = {
     'Genera Testo (AI)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Text', name: 'Prompt' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Text', name: 'Generated Text' }] },
     'Genera Immagine (AI)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Text', name: 'Prompt' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Image', name: 'Generated Image' }] },
     'Analisi Vulnerabilità (AI)': { inputs: [{ type: 'ControlFlow', name: 'In' }, { type: 'Target', name: 'Target' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Vulnerability', name: 'AI Found Vulnerability' }] },
+    'Sviluppa Modulo Malware (AI)': { inputs: [{ type: 'ControlFlow', name: 'In' }], outputs: [{ type: 'ControlFlow', name: 'Out' }, { type: 'Payload', name: 'AI Malware' }] }, // AGGIUNTO
 };

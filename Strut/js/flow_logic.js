@@ -1,5 +1,5 @@
 // File: js/flow_logic.js
-// VERSIONE AGGIORNATA con regole di Completezza Funzionale più intelligenti.
+// VERSIONE CORRETTA: Aggiornate le categorie dei blocchi malware per la validazione della botnet.
 
 const blockCategories = {
     // --- Accesso / Identificazione ---
@@ -34,8 +34,6 @@ const blockCategories = {
     'Esegui Cross-Site Scripting (XSS)': 'deploy',
 
     // --- Controllo Remoto / C2 ---
-    'Sviluppa backdoor semplice': 'c2',
-    'Crea shellcode base': 'c2',
     'Integra con rete Tor': 'c2',
     'Crea VPN personalizzata': 'c2',
 
@@ -71,9 +69,10 @@ const blockCategories = {
     'Simula attacco vishing/smishing': 'social_engineering',
     'Crea Link Falso': 'social_engineering',
 
-    // --- Componenti Malware ---
+    // --- Componenti Malware / Bot ---
+    'Sviluppa backdoor semplice': 'bot_component', // CORRETTO
+    'Sviluppa Modulo Malware (AI)': 'bot_component', // CORRETTO
     'Crea trojan avanzato': 'malware_component',
-    'Sviluppa Modulo Malware (AI)': 'malware_component',
 
     // --- Ricognizione ---
     'Trova vulnerabilità software (scanner)': 'recon',
@@ -97,16 +96,13 @@ const flowObjectives = {
         label: 'Esfiltrazione Dati',
         description: 'Ruba informazioni specifiche da un target.',
         pfe: {
-            // REGOLA MODIFICATA
             access_path: {
                 required: true,
                 weight: 0.3,
                 hint: "Manca un percorso di accesso valido (es. Scansione Rete oppure Analisi Vulnerabilità + Deploy).",
-                // Definisce i percorsi validi. Un percorso è un array di categorie di blocchi.
-                // Il flusso è valido se contiene TUTTI i blocchi di ALMENO UNO dei percorsi.
                 paths: [
-                    ['access'], // Percorso 1: Un blocco di categoria 'access' è sufficiente.
-                    ['recon', 'deploy'] // Percorso 2: Un blocco 'recon' E un blocco 'deploy' sono sufficienti.
+                    ['access'],
+                    ['recon', 'deploy']
                 ]
             },
             acquisition: { required: true, weight: 0.4, hint: "Manca un blocco per l'acquisizione dei dati (es. SQL Injection, Keylogger)." },

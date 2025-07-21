@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE AGGIORNATA: Aggiunta la funzione globale per mostrare le notifiche.
+// VERSIONE AGGIORNATA: Aggiunto stato per il pool di computer infetti e gestione nuova pagina botnet.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -30,6 +30,7 @@ let state = {
         slots: 5,
         attachedFlows: Array.from({ length: 5 }, () => ({ flowName: null, status: 'idle', startTime: 0, duration: 0 })),
     },
+    infectedHostPool: [], // NUOVO STATO
     storage: {
         personalMax: 100,
         personalUsed: 0
@@ -77,34 +78,18 @@ const talentPointsEl = document.getElementById('talent-points');
 const resetButton = document.getElementById('reset-button');
 const navButtons = document.querySelectorAll('.nav-btn');
 
-// --- NUOVA FUNZIONE NOTIFICHE ---
 function showNotification(message, type = 'info') {
     const container = document.getElementById('notification-container');
     if (!container) return;
-
     const notif = document.createElement('div');
     notif.className = `notification ${type}`;
-    
     let icon = 'fa-info-circle';
     if (type === 'error') icon = 'fa-exclamation-triangle';
     if (type === 'success') icon = 'fa-check-circle';
-
-    notif.innerHTML = `
-        <div class="flex items-center">
-            <i class="fas ${icon} mr-3 text-lg"></i>
-            <p class="text-sm">${message}</p>
-        </div>
-    `;
-
+    notif.innerHTML = `<div class="flex items-center"><i class="fas ${icon} mr-3 text-lg"></i><p class="text-sm">${message}</p></div>`;
     container.appendChild(notif);
-
-    // Rimuovi la notifica dopo 5 secondi
-    setTimeout(() => {
-        notif.remove();
-    }, 8000);
+    setTimeout(() => { notif.remove(); }, 5000);
 }
-// --- FINE NUOVA FUNZIONE ---
-
 
 function saveState() {
     const { permanentFlows, ...gameState } = state;
@@ -115,7 +100,6 @@ function saveState() {
 function loadState() {
     const savedState = localStorage.getItem('hackerAppState');
     const savedPermanentFlows = localStorage.getItem('hackerAppPermanentFlows');
-
     if (savedState) {
         try {
             const loadedState = JSON.parse(savedState);
@@ -125,7 +109,6 @@ function loadState() {
             localStorage.removeItem('hackerAppState');
         }
     }
-    
     if (savedPermanentFlows) {
         try {
             state.permanentFlows = JSON.parse(savedPermanentFlows);
@@ -144,8 +127,6 @@ function resetState() {
     }
 }
 
-// (Il resto del file main.js rimane invariato)
-// ... [TUTTO IL RESTO DEL CODICE DI main.js] ...
 function isObject(item) {
     return (item && typeof item === 'object' && !Array.isArray(item));
 }
@@ -174,7 +155,6 @@ function refreshVpnIp(serviceId) {
     let isClanService = false;
     let currency = 'XMR';
     let balance;
-
     const personalServiceData = marketData.networkServices.find(s => s.id === serviceId);
     if (personalServiceData && state.purchasedServices[serviceId]) {
         serviceData = personalServiceData;
@@ -205,31 +185,25 @@ function refreshVpnIp(serviceId) {
             }
         }
     }
-
     if (!serviceData || !serviceState) {
         console.error("Servizio non trovato per il refresh IP:", serviceId);
         return;
     }
-
     const costXMR = serviceData.refreshCostXMR;
     const xmrToBtcRate = 0.0035; 
     const finalCost = isClanService ? costXMR * xmrToBtcRate : costXMR;
-
     if (balance < finalCost) {
         alert(`Fondi insufficienti. Costo: ${finalCost.toFixed(isClanService ? 6 : 0)} ${currency}.`);
         return;
     }
-
     if (confirm(`Vuoi spendere ${finalCost.toFixed(isClanService ? 6 : 0)} ${currency} per un nuovo IP per ${serviceData.name}?`)) {
         if (isClanService) {
             state.clan.treasury -= finalCost;
         } else {
             state.xmr -= finalCost;
         }
-        
         delete state.ipTraceability[serviceState.currentIp];
         serviceState.currentIp = generateRandomIp();
-        
         saveState();
         updateUI();
         if (state.activePage === 'hq') renderHqPage();
@@ -279,16 +253,11 @@ function destroyLines() {
     lines.forEach(line => line.remove());
     lines = [];
 }
+// --- FUNZIONE MODIFICATA ---
 async function switchPage(pageName) {
     if (!pageName) return;
     if (pageName === 'world' && !state.isWorldUnlocked) {
-        appContainer.innerHTML = `
-            <div class="text-center p-10">
-                <h2 class="text-4xl font-bold text-red-500 mb-4">ACCESSO NEGATO</h2>
-                <p class="text-lg text-gray-400">Il cyber-spazio è vasto e sconosciuto.</p>
-                <p class="text-lg text-gray-400">Esegui una "Scansione Internet" dal tuo computer nell'HQ per mappare i primi obiettivi.</p>
-            </div>
-        `;
+        appContainer.innerHTML = `<div class="text-center p-10"><h2 class="text-4xl font-bold text-red-500 mb-4">ACCESSO NEGATO</h2><p class="text-lg text-gray-400">Il cyber-spazio è vasto e sconosciuto.</p><p class="text-lg text-gray-400">Esegui una "Scansione Internet" dal tuo computer nell'HQ per mappare i primi obiettivi.</p></div>`;
         document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
         return;
     }
@@ -307,6 +276,7 @@ async function switchPage(pageName) {
             case 'editor': initEditorPage(); break;
             case 'world': initWorldPage(); break;
             case 'market': initMarketPage(); break;
+            case 'botnet': initBotnetPage(); break; // Aggiunto
             case 'dark_market': initDarkMarketPage(); break;
             case 'intelligence_console': initIntelligencePage(); break;
         }
