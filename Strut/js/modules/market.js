@@ -1,5 +1,5 @@
 // File: js/modules/market.js
-// VERSIONE CORRETTA: Logica di acquisto unificata per hardware e servizi.
+// VERSIONE CORRETTA: Aggiunto lo stato 'attachedService' alla creazione di nuovi server.
 
 function renderMarket() {
     const hardwareContainer = document.getElementById('hardware-market');
@@ -125,7 +125,12 @@ function buyMarketItem(event) {
                     if (!state.clan.id) state.clan.id = Math.floor(Math.random() * 100);
                     const newServerId = state.clan.infrastructure.servers.length > 0 ? Math.max(...state.clan.infrastructure.servers.map(s => s.id)) + 1 : 1;
                     const newIp = `10.C${state.clan.id}.${newServerId}.${Math.floor(Math.random() * 254) + 1}`;
-                    const newServer = { id: newServerId, ip: newIp, attachedFlows: Array(item.flowSlots).fill(null) };
+                    const newServer = {
+                        id: newServerId,
+                        ip: newIp,
+                        attachedFlows: Array(item.flowSlots).fill(null),
+                        attachedService: null // Aggiunto stato per i servizi
+                    };
                     state.clan.infrastructure.servers.push(newServer);
                     updateAllBonuses();
                     updateClanEcosystemScore();
@@ -145,7 +150,7 @@ function buyMarketItem(event) {
                 if (confirm(`Acquistare ${item.name} per il clan per ~${costInBtc.toFixed(6)} BTC?`)) {
                     state.clan.treasury -= costInBtc;
                     const newInfra = { tier: 1, attachedFlows: [] };
-                    if (itemBaseId === 'c_vpn') {
+                    if (itemBaseId === 'c_vpn' || itemBaseId === 'c_firewall') {
                         newInfra.currentIp = item.ipAddress;
                     }
                     state.clan.infrastructure[itemBaseId] = newInfra;

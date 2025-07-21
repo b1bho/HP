@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE CORRETTA: Logica di unione (merge) dello stato di gioco resa più sicura per prevenire crash.
+// VERSIONE CORRETTA: La funzione di refresh IP ora supporta anche il firewall del clan.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -73,24 +73,40 @@ function generateRandomIp() {
     return `${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 254) + 1}`;
 }
 
+// VERSIONE AGGIORNATA
 function refreshVpnIp(serviceId) {
     let serviceData, serviceState;
-    let isClanVpn = false;
+    let isClanService = false;
     let currency = 'XMR';
     let balance;
 
+    // 1. Cerca tra i servizi personali
     const personalServiceData = marketData.networkServices.find(s => s.id === serviceId);
     if (personalServiceData && state.purchasedServices[serviceId]) {
         serviceData = personalServiceData;
         serviceState = state.purchasedServices[serviceId];
         balance = state.xmr;
-    } else if (state.clan && state.clan.infrastructure.c_vpn) {
+    } 
+    // 2. Cerca nella VPN del clan
+    else if (state.clan && state.clan.infrastructure.c_vpn) {
         const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
         const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
         if (clanVpnData && clanVpnData.id === serviceId) {
             serviceData = clanVpnData;
             serviceState = state.clan.infrastructure.c_vpn;
-            isClanVpn = true;
+            isClanService = true;
+            balance = state.clan.treasury;
+            currency = 'BTC';
+        }
+    }
+    // 3. Cerca nel Firewall del clan
+    else if (state.clan && state.clan.infrastructure.c_firewall) {
+        const clanFirewallTier = state.clan.infrastructure.c_firewall.tier - 1;
+        const clanFirewallData = marketData.clanInfrastructure.c_firewall.tiers[clanFirewallTier];
+        if (clanFirewallData && clanFirewallData.id === serviceId) {
+            serviceData = clanFirewallData;
+            serviceState = state.clan.infrastructure.c_firewall;
+            isClanService = true;
             balance = state.clan.treasury;
             currency = 'BTC';
         }
@@ -101,16 +117,19 @@ function refreshVpnIp(serviceId) {
         return;
     }
 
-    const cost = serviceData.refreshCostXMR;
-    const finalCost = isClanVpn ? (cost * 10) / state.btcValueInUSD : cost; // Costo in BTC per il clan
+    const costXMR = serviceData.refreshCostXMR;
+    // Il costo per i servizi del clan è in XMR ma pagato dalla tesoreria in BTC.
+    // Assumiamo un tasso di cambio fittizio per la conversione.
+    const xmrToBtcRate = 0.0035; 
+    const finalCost = isClanService ? costXMR * xmrToBtcRate : costXMR;
 
     if (balance < finalCost) {
-        alert(`Fondi insufficienti. Costo: ${finalCost.toFixed(isClanVpn ? 6 : 0)} ${currency}.`);
+        alert(`Fondi insufficienti. Costo: ${finalCost.toFixed(isClanService ? 6 : 0)} ${currency}.`);
         return;
     }
 
-    if (confirm(`Vuoi spendere ${finalCost.toFixed(isClanVpn ? 6 : 0)} ${currency} per un nuovo IP per ${serviceData.name}?`)) {
-        if (isClanVpn) {
+    if (confirm(`Vuoi spendere ${finalCost.toFixed(isClanService ? 6 : 0)} ${currency} per un nuovo IP per ${serviceData.name}?`)) {
+        if (isClanService) {
             state.clan.treasury -= finalCost;
         } else {
             state.xmr -= finalCost;

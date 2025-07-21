@@ -1,5 +1,5 @@
 // File: js/modules/profile.js
-// VERSIONE CORRETTA: Visualizzazione IP e refresh per tutte le infrastrutture clan.
+// VERSIONE CORRETTA: Aggiunta logica per agganciare/sganciare la VPN del clan ai server.
 
 function switchProfileSection(sectionName) {
     state.activeProfileSection = sectionName;
@@ -419,9 +419,33 @@ function leaveClan() {
     }
 }
 
-// VERSIONE RISCRITTA
+// --- NUOVE FUNZIONI PER GESTIRE I SERVIZI SUI SERVER ---
+function attachServiceToServer(serverId, serviceId) {
+    const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
+    if (!server) return;
+
+    const isServiceAttachedElsewhere = state.clan.infrastructure.servers.some(s => s.attachedService === serviceId);
+    if (isServiceAttachedElsewhere) {
+        alert('Questo servizio è già in uso su un altro server.');
+        return;
+    }
+
+    server.attachedService = serviceId;
+    saveState();
+    renderClanSection();
+}
+
+function detachServiceFromServer(serverId) {
+    const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
+    if (server) {
+        server.attachedService = null;
+        saveState();
+        renderClanSection();
+    }
+}
+
+
 function createInfraCard(infraId, infraState) {
-    // Gestione Server (logica quasi invariata ma ripulita)
     if (infraId === 'servers') {
         const serverData = marketData.clanInfrastructure.clanServer;
         const container = document.createElement('div');
@@ -431,6 +455,8 @@ function createInfraCard(infraId, infraState) {
         infraState.forEach(server => {
             const card = document.createElement('div');
             card.className = 'infra-card p-4 rounded-lg';
+            
+            // Sezione Slot Flussi
             let flowSlotsHTML = `<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">
                                  <h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${server.attachedFlows.filter(f => f).length}/${serverData.flowSlots})</h5>`;
             for (let i = 0; i < serverData.flowSlots; i++) {
@@ -445,16 +471,58 @@ function createInfraCard(infraId, infraState) {
             }
             flowSlotsHTML += '</div>';
 
-            card.innerHTML = `<div class="flex justify-between items-center"><h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${serverData.icon}"></i>Server Clan #${server.id}</h4><span class="font-mono text-sm text-green-400">${server.ip}</span></div>${flowSlotsHTML}`;
+            // --- NUOVA SEZIONE SLOT SERVIZI ---
+            let serviceSlotHTML = '';
+            const clanVpn = state.clan.infrastructure.c_vpn;
+            if (clanVpn) {
+                const vpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpn.tier - 1];
+                const vpnAttachedServer = state.clan.infrastructure.servers.find(s => s.attachedService === 'c_vpn');
+
+                serviceSlotHTML = `<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">
+                                     <h5 class="text-sm font-semibold text-gray-300">Slot Servizio di Rete</h5>`;
+
+                if (server.attachedService === 'c_vpn') {
+                    // La VPN è agganciata a QUESTO server
+                    serviceSlotHTML += `
+                        <div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md">
+                            <span class="text-xs font-mono text-purple-300">${vpnData.name}</span>
+                            <button class="detach-service-btn text-red-500 hover:text-red-400 text-xs" data-server-id="${server.id}">
+                                <i class="fas fa-times-circle"></i> Sgancia
+                            </button>
+                        </div>`;
+                } else if (vpnAttachedServer) {
+                    // La VPN è agganciata a un ALTRO server
+                    serviceSlotHTML += `
+                        <div class="bg-gray-800/50 p-2 rounded-md text-center">
+                            <span class="text-xs text-gray-500">Slot occupato da VPN (su Server #${vpnAttachedServer.id})</span>
+                        </div>`;
+                } else {
+                    // La VPN è disponibile per essere agganciata
+                    serviceSlotHTML += `
+                        <div class="flex items-center gap-2">
+                             <span class="text-xs text-gray-400 flex-grow">Slot Libero</span>
+                             <button class="attach-service-btn px-2 py-1 text-xs font-semibold rounded-md bg-purple-600 hover:bg-purple-700" data-server-id="${server.id}" data-service-id="c_vpn">
+                                Aggancia VPN
+                            </button>
+                        </div>`;
+                }
+                serviceSlotHTML += `</div>`;
+            }
+            // --- FINE NUOVA SEZIONE ---
+
+            card.innerHTML = `<div class="flex justify-between items-center"><h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${serverData.icon}"></i>Server Clan #${server.id}</h4><span class="font-mono text-sm text-green-400">${server.ip}</span></div>${flowSlotsHTML}${serviceSlotHTML}`;
             container.appendChild(card);
         });
-        // Aggiungi event listener dopo aver creato tutte le card
+
         container.querySelectorAll('.attach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => attachFlowToServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex), btn.previousElementSibling.value)));
         container.querySelectorAll('.detach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => detachFlowFromServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex))));
+        // Listener per i nuovi pulsanti
+        container.querySelectorAll('.attach-service-btn').forEach(btn => btn.addEventListener('click', () => attachServiceToServer(parseInt(btn.dataset.serverId), btn.dataset.serviceId)));
+        container.querySelectorAll('.detach-service-btn').forEach(btn => btn.addEventListener('click', () => detachServiceFromServer(parseInt(btn.dataset.serverId))));
+        
         return container;
     }
 
-    // Gestione di tutte le altre infrastrutture con tier (VPN, Firewall, etc.)
     const infraData = marketData.clanInfrastructure[infraId];
     if (!infraData || !infraData.tiers) return document.createElement('div');
 
@@ -462,7 +530,6 @@ function createInfraCard(infraId, infraState) {
     const card = document.createElement('div');
     card.className = 'infra-card p-4 rounded-lg';
 
-    // Bottone di Upgrade
     let upgradeButtonHTML = '';
     if (infraState.tier < infraData.tiers.length) {
         const nextTier = infraData.tiers[infraState.tier];
@@ -473,9 +540,7 @@ function createInfraCard(infraId, infraState) {
         upgradeButtonHTML = `<span class="px-3 py-1 text-xs font-semibold text-green-400">Livello Massimo</span>`;
     }
 
-    // Sezione IP e Slot Flussi
     let detailsHTML = '<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">';
-    // Mostra IP e bottone refresh se l'infrastruttura ne ha uno
     if (infraState.currentIp && currentTier.refreshCostXMR) {
         detailsHTML += `
             <div class="flex items-center justify-between text-sm">
@@ -489,23 +554,21 @@ function createInfraCard(infraId, infraState) {
             </div>`;
     }
 
-    // Gestione Slot Flussi (se presenti)
     if (currentTier.flowSlots > 0) {
-        detailsHTML += `<h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${infraState.attachedFlows.filter(f => f).length}/${currentTier.flowSlots})</h5>`;
+         detailsHTML += `<h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${infraState.attachedFlows.filter(f => f).length}/${currentTier.flowSlots})</h5>`;
         for(let i = 0; i < currentTier.flowSlots; i++) {
-             const attachedFlow = infraState.attachedFlows[i];
-             if (attachedFlow) {
-                 detailsHTML += `<div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md"><span class="text-xs font-mono text-indigo-300">${attachedFlow}</span><button class="detach-flow-btn text-red-500 hover:text-red-400 text-xs" data-infra-id="${infraId}" data-slot-index="${i}"><i class="fas fa-times-circle"></i> Sgancia</button></div>`;
-             } else {
-                  let options = '<option value="">Seleziona Flusso...</option>';
-                  Object.keys(state.savedFlows).forEach(name => { options += `<option value="${name}">${name}</option>`; });
-                  detailsHTML += `<div class="flex items-center gap-2"><select class="flow-select bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">${options}</select><button class="attach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-infra-id="${infraId}" data-slot-index="${i}">Aggancia</button></div>`;
-             }
+            const attachedFlow = infraState.attachedFlows[i];
+            if (attachedFlow) {
+                detailsHTML += `<div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md"><span class="text-xs font-mono text-indigo-300">${attachedFlow}</span><button class="detach-flow-btn text-red-500 hover:text-red-400 text-xs" data-infra-id="${infraId}" data-slot-index="${i}"><i class="fas fa-times-circle"></i> Sgancia</button></div>`;
+            } else {
+                 let options = '<option value="">Seleziona Flusso...</option>';
+                 Object.keys(state.savedFlows).forEach(name => { options += `<option value="${name}">${name}</option>`; });
+                 detailsHTML += `<div class="flex items-center gap-2"><select class="flow-select bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">${options}</select><button class="attach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-infra-id="${infraId}" data-slot-index="${i}">Aggancia</button></div>`;
+            }
         }
     }
     detailsHTML += '</div>';
 
-    // Assemblaggio finale della card
     card.innerHTML = `
         <div class="flex justify-between items-start">
             <div>
@@ -520,7 +583,6 @@ function createInfraCard(infraId, infraState) {
         ${detailsHTML}
     `;
 
-    // Aggiunta Event Listener
     card.querySelectorAll('.upgrade-infra-btn').forEach(btn => btn.addEventListener('click', () => upgradeInfra(btn.dataset.infraId)));
     card.querySelectorAll('.attach-flow-btn').forEach(btn => btn.addEventListener('click', () => attachFlow(btn.dataset.infraId, btn.dataset.slotIndex, btn.previousElementSibling.value)));
     card.querySelectorAll('.detach-flow-btn').forEach(btn => btn.addEventListener('click', () => detachFlow(btn.dataset.infraId, btn.dataset.slotIndex)));
@@ -546,7 +608,6 @@ function upgradeInfra(infraId) {
         if(confirm(`Potenziare ${infraData.name} a Tier ${infraState.tier + 1} per ~${costInBtc.toFixed(6)} BTC?`)) {
             state.clan.treasury -= costInBtc;
             infraState.tier++;
-            // Se l'infrastruttura ha un IP, aggiornalo a quello del nuovo tier
             if (nextTier.ipAddress) {
                 infraState.currentIp = nextTier.ipAddress;
             }
