@@ -1,5 +1,5 @@
 // File: js/modules/editor.js
-// VERSIONE AGGIORNATA: Corretto il salvataggio e caricamento dei flussi per includere sempre l'host.
+// VERSIONE AGGIORNATA: Aggiunta la possibilità di ospitare flussi sui gruppi della botnet.
 
 let currentObjective = 'none';
 let currentFc = { score: 0, hints: [] };
@@ -342,10 +342,13 @@ function populateObjectiveSelector() {
     });
 }
 
+// --- FUNZIONE MODIFICATA ---
 function populateHostSelector() {
     const hostSelect = document.getElementById('flow-host-select');
     if (!hostSelect) return;
     hostSelect.innerHTML = '<option value="personal">Computer Personale (HQ)</option>';
+    
+    // Server del Clan
     if (state.clan && state.clan.infrastructure.servers && state.clan.infrastructure.servers.length > 0) {
         const serverGroup = document.createElement('optgroup');
         serverGroup.label = 'Server del Clan';
@@ -353,6 +356,16 @@ function populateHostSelector() {
             serverGroup.innerHTML += `<option value="clan-${server.id}">Server #${server.id} (${server.ip})</option>`;
         });
         hostSelect.appendChild(serverGroup);
+    }
+
+    // Gruppi Botnet
+    if (Object.keys(state.botnetGroups).length > 0) {
+        const botnetGroup = document.createElement('optgroup');
+        botnetGroup.label = 'Gruppi Botnet';
+        Object.keys(state.botnetGroups).forEach(groupName => {
+            botnetGroup.innerHTML += `<option value="botnet-${groupName}">${groupName}</option>`;
+        });
+        hostSelect.appendChild(botnetGroup);
     }
 }
 
@@ -384,7 +397,7 @@ function populateSavedFlowsDropdown() {
     }
 }
 
-// --- FUNZIONE CORRETTA ---
+// --- FUNZIONE MODIFICATA ---
 function getFlowData() {
     const canvas = document.getElementById('canvas');
     const hostSelect = document.getElementById('flow-host-select');
@@ -402,6 +415,9 @@ function getFlowData() {
         if (server) {
             hostData = { type: 'clan', serverId: server.id, name: `Server #${server.id}` };
         }
+    } else if (hostValue.startsWith('botnet-')) {
+        const groupName = hostValue.replace('botnet-', '');
+        hostData = { type: 'botnet_group', name: groupName };
     }
     
     return {
@@ -410,7 +426,7 @@ function getFlowData() {
         stats: calculateFlowStats(nodesOnCanvas),
         objective: currentObjective,
         fc: currentFc.score,
-        host: hostData // Assicura che l'host sia sempre incluso
+        host: hostData
     };
 }
 
@@ -436,7 +452,6 @@ function saveFlowPermanently() {
     alert(`Flusso permanente "${flowName}" salvato! Non verrà eliminato con il reset.`);
 }
 
-// --- FUNZIONE CORRETTA ---
 function loadFlow() {
     const dropdown = document.getElementById('saved-flows-dropdown');
     const selectedOption = dropdown.options[dropdown.selectedIndex];
@@ -470,9 +485,11 @@ function loadFlow() {
             hostSelect.value = 'personal';
         } else if (flowData.host.type === 'clan') {
             hostSelect.value = `clan-${flowData.host.serverId}`;
+        } else if (flowData.host.type === 'botnet_group') {
+            hostSelect.value = `botnet-${flowData.host.name}`;
         }
     } else {
-        hostSelect.value = 'personal'; // Default se l'host non è definito
+        hostSelect.value = 'personal';
     }
 
     currentObjective = flowData.objective || 'none';

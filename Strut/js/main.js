@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE AGGIORNATA: Aggiunto stato per il pool di computer infetti e gestione nuova pagina botnet.
+// VERSIONE AGGIORNATA: Aggiunto stato per i gruppi della botnet.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -30,7 +30,8 @@ let state = {
         slots: 5,
         attachedFlows: Array.from({ length: 5 }, () => ({ flowName: null, status: 'idle', startTime: 0, duration: 0 })),
     },
-    infectedHostPool: [], // NUOVO STATO
+    infectedHostPool: [],
+    botnetGroups: {}, // NUOVO: Es. { "AlphaGroup": { hostIds: ["host-123", "host-456"], attachedFlows: [] } }
     storage: {
         personalMax: 100,
         personalUsed: 0
@@ -253,7 +254,6 @@ function destroyLines() {
     lines.forEach(line => line.remove());
     lines = [];
 }
-// --- FUNZIONE MODIFICATA ---
 async function switchPage(pageName) {
     if (!pageName) return;
     if (pageName === 'world' && !state.isWorldUnlocked) {
@@ -276,7 +276,7 @@ async function switchPage(pageName) {
             case 'editor': initEditorPage(); break;
             case 'world': initWorldPage(); break;
             case 'market': initMarketPage(); break;
-            case 'botnet': initBotnetPage(); break; // Aggiunto
+            case 'botnet': initBotnetPage(); break;
             case 'dark_market': initDarkMarketPage(); break;
             case 'intelligence_console': initIntelligencePage(); break;
         }

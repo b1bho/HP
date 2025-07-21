@@ -209,30 +209,37 @@ function resolveAttack(attack, progressPercentage) {
     let infectionType = null;
     let hostsToInfect = 0;
 
-    if (objective.pfe.c2) infectionType = 'Backdoor';
-    if (objective.pfe.bot_component) infectionType = 'BotnetAgent';
-    if (objective.pfe.replication) infectionType = 'WormAgent';
-    
-    if (infectionType) {
-        hostsToInfect = Math.ceil(effectiveStats.eo / 2 * successRatio);
-        for(let i = 0; i < hostsToInfect; i++) {
-            const newHost = {
-                id: `host-${Date.now()}-${i}`,
-                ipAddress: generateRandomIp(),
-                location: attack.nationName || 'Sconosciuta',
-                status: 'Active',
-                infectionType: infectionType,
-                stabilityScore: Math.min(99, effectiveStats.rc * 20),
-                traceabilityScore: 10 + effectiveStats.rl,
-                resources: {
-                    cpuPower: parseFloat((1 + Math.random() * effectiveStats.eo).toFixed(2)),
-                    bandwidth: 100 + Math.floor(Math.random() * 900)
-                },
-                lastContact: Date.now()
-            };
-            state.infectedHostPool.push(newHost);
+    if (objective && (attack.flowObjective === 'remoteControl' || attack.flowObjective === 'botnet' || attack.flowObjective === 'worm')) {
+        if (objective.pfe.bot_component) infectionType = 'BotnetAgent';
+        else if (objective.pfe.replication) infectionType = 'WormAgent';
+        else if (objective.pfe.c2) infectionType = 'Backdoor';
+        
+        if (infectionType) {
+            hostsToInfect = Math.ceil(effectiveStats.eo / 2 * successRatio);
+            for(let i = 0; i < hostsToInfect; i++) {
+                const newHost = {
+                    id: `host-${Date.now()}-${i}`,
+                    ipAddress: generateRandomIp(),
+                    location: attack.nationName || 'Sconosciuta',
+                    status: 'Active',
+                    infectionType: infectionType,
+                    stabilityScore: Math.min(99, effectiveStats.rc * 20),
+                    traceabilityScore: 10 + effectiveStats.rl,
+                    resources: {
+                        cpuPower: parseFloat((1 + Math.random() * effectiveStats.eo).toFixed(2)),
+                        bandwidth: 100 + Math.floor(Math.random() * 900)
+                    },
+                    lastContact: Date.now()
+                };
+                state.infectedHostPool.push(newHost);
+            }
+            if (hostsToInfect > 0) {
+                showNotification(`${hostsToInfect} nuovo/i host infettati con ${infectionType} e aggiunti al tuo pool!`, 'success');
+                if (state.activePage === 'botnet') {
+                    initBotnetPage(); // Aggiorna la pagina se l'utente è lì
+                }
+            }
         }
-        showNotification(`${hostsToInfect} nuovo/i host infetti con ${infectionType} aggiunti al tuo pool!`, 'success');
     }
     // --- FINE LOGICA ---
 
@@ -252,7 +259,7 @@ function resolveAttack(attack, progressPercentage) {
     if (dataPacket.quantity > 0) {
         showStorageChoiceModal(dataPacket);
     } else if (hostsToInfect === 0) {
-        alert('Operazione completata con successo parziale, ma la qualità del flusso non è stata sufficiente per estrarre dati di valore.');
+        alert('Operazione completata con successo parziale, ma non sono stati estratti dati di valore.');
     }
 }
 

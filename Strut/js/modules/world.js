@@ -1,5 +1,5 @@
 // File: js/modules/world.js
-// VERSIONE AGGIORNATA: Aggiunge l'obiettivo del flusso all'oggetto dell'attacco.
+// VERSIONE AGGIORNATA: Gestisce il lancio di attacchi da gruppi di botnet.
 
 let selectedNation = null;
 let selectedTarget = null;
@@ -419,6 +419,9 @@ function renderRoutingChain() {
                 sourceIp = server.ip;
                 sourceIpLabel = `<span class="font-mono text-green-400" title="Origine: Server Clan #${server.id}">${sourceIp}</span>`;
             }
+        } else if (flow && flow.host && flow.host.type === 'botnet_group') {
+            sourceIp = `BOTNET: ${flow.host.name}`;
+            sourceIpLabel = `<span class="font-mono text-purple-400" title="Origine: Gruppo Botnet">${sourceIp}</span>`;
         }
     }
     
@@ -535,6 +538,16 @@ function launchAttack() {
     finalFlowStats.rl += Math.floor(routingModifiers.blockRisk * 10);
     finalFlowStats.rc = parseFloat((finalFlowStats.rc * routingModifiers.reliability).toFixed(2));
 
+    // Aggiungi bonus dalla botnet se l'attacco parte da lì
+    if (flow.host && flow.host.type === 'botnet_group') {
+        const group = state.botnetGroups[flow.host.name];
+        if (group) {
+            const activeHosts = state.infectedHostPool.filter(h => group.hostIds.includes(h.id) && h.status === 'Active');
+            const aggregatePower = activeHosts.reduce((sum, host) => sum + host.resources.cpuPower, 0);
+            finalFlowStats.eo += Math.floor(aggregatePower / 10); // Bonus all'efficienza
+        }
+    }
+
     const baseTime = target.baseExecutionTime || 3600;
     const finalExecutionTime = Math.round(baseTime + (routingModifiers.latency / 10));
 
@@ -548,7 +561,7 @@ function launchAttack() {
         host: flow.host,
         flowStats: finalFlowStats,
         flowFc: flow.fc,
-        flowObjective: flow.objective, // Aggiunto per la logica di infezione
+        flowObjective: flow.objective,
         routingChain: activeNodes.map(n => n.id)
     };
 
