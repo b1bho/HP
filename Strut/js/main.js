@@ -1,5 +1,5 @@
 // File: js/main.js
-// VERSIONE CORRETTA: Aggiunta la gestione dei servizi acquistati (purchasedServices).
+// VERSIONE CORRETTA: Logica di unione (merge) dello stato di gioco resa più sicura per prevenire crash.
 
 // --- STATO GLOBALE ---
 let state = {
@@ -19,7 +19,7 @@ let state = {
         traces: 3,
         investigatedBy: 'Nessuno',
         suspicion: 15,
-        realIp: "87.15.22.113",
+        realIp: "87.15.22.113", // IP di default
         isIpDynamic: true,
     },
     storage: {
@@ -32,14 +32,14 @@ let state = {
     },
     intelItems: [],
     activeAttacks: [],
-    activeQuests: [], 
+    activeQuests: [],
     completedQuests: [],
     activePage: 'hq',
     activeProfileSection: 'talents',
     savedFlows: {},
     ownedHardware: {}, // Per CPU, RAM, etc.
     purchasedServices: {}, // Per gestire lo stato dei servizi come le VPN
-    clan: null,
+    clan: null, // Importante: il valore di default è null
     hardwareBonuses: {
         studyTimeModifier: 1,
         toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 }
@@ -57,7 +57,7 @@ let state = {
 
 let lines = [];
 let startSocket = null;
-const QUEST_CHECK_INTERVAL_MS = 15000; 
+const QUEST_CHECK_INTERVAL_MS = 15000;
 const NEWS_TICKER_INTERVAL_MS = 8000;
 const BTC_VALUE_UPDATE_INTERVAL_MS = 120000;
 
@@ -74,25 +74,55 @@ function generateRandomIp() {
 }
 
 function refreshVpnIp(serviceId) {
-    const serviceData = marketData.networkServices.find(s => s.id === serviceId);
-    if (!serviceData || !state.purchasedServices[serviceId]) return;
+    let serviceData, serviceState;
+    let isClanVpn = false;
+    let currency = 'XMR';
+    let balance;
 
-    const cost = serviceData.refreshCostXMR;
-    if (state.xmr < cost) {
-        alert(`Non hai abbastanza XMR per cambiare IP. Costo: ${cost} XMR.`);
+    const personalServiceData = marketData.networkServices.find(s => s.id === serviceId);
+    if (personalServiceData && state.purchasedServices[serviceId]) {
+        serviceData = personalServiceData;
+        serviceState = state.purchasedServices[serviceId];
+        balance = state.xmr;
+    } else if (state.clan && state.clan.infrastructure.c_vpn) {
+        const clanVpnTier = state.clan.infrastructure.c_vpn.tier - 1;
+        const clanVpnData = marketData.clanInfrastructure.c_vpn.tiers[clanVpnTier];
+        if (clanVpnData && clanVpnData.id === serviceId) {
+            serviceData = clanVpnData;
+            serviceState = state.clan.infrastructure.c_vpn;
+            isClanVpn = true;
+            balance = state.clan.treasury;
+            currency = 'BTC';
+        }
+    }
+
+    if (!serviceData || !serviceState) {
+        console.error("Servizio non trovato per il refresh IP:", serviceId);
         return;
     }
 
-    if (confirm(`Vuoi spendere ${cost} XMR per ottenere un nuovo indirizzo IP per ${serviceData.name}?`)) {
-        state.xmr -= cost;
-        state.purchasedServices[serviceId].currentIp = generateRandomIp();
+    const cost = serviceData.refreshCostXMR;
+    const finalCost = isClanVpn ? (cost * 10) / state.btcValueInUSD : cost; // Costo in BTC per il clan
+
+    if (balance < finalCost) {
+        alert(`Fondi insufficienti. Costo: ${finalCost.toFixed(isClanVpn ? 6 : 0)} ${currency}.`);
+        return;
+    }
+
+    if (confirm(`Vuoi spendere ${finalCost.toFixed(isClanVpn ? 6 : 0)} ${currency} per un nuovo IP per ${serviceData.name}?`)) {
+        if (isClanVpn) {
+            state.clan.treasury -= finalCost;
+        } else {
+            state.xmr -= finalCost;
+        }
+        serviceState.currentIp = generateRandomIp();
         saveState();
         updateUI();
-        if (state.activePage === 'hq') {
-            renderHqPage();
-        }
+        if (state.activePage === 'hq') renderHqPage();
+        if (state.activePage === 'profile' && state.activeProfileSection === 'clan') renderClanSection();
     }
 }
+
 
 async function updateBTCValue() {
     try {
@@ -115,14 +145,79 @@ function saveState() {
     localStorage.setItem('hackerAppState', JSON.stringify(state));
 }
 
+// --- NUOVA LOGICA DI CARICAMENTO STATO ---
+
+// Funzione helper per verificare se una variabile è un oggetto (e non null o un array)
+function isObject(item) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+// Funzione di unione profonda (deep merge) più sicura
+function deepMerge(target, source) {
+    const output = { ...target };
+
+    if (isObject(target) && isObject(source)) {
+        Object.keys(source).forEach(key => {
+            if (isObject(source[key])) {
+                // Se la chiave esiste nel target ed è anch'essa un oggetto, unisci ricorsivamente
+                if (key in target && isObject(target[key])) {
+                    output[key] = deepMerge(target[key], source[key]);
+                } else {
+                // Altrimenti, sovrascrivi semplicemente con l'oggetto del source
+                    output[key] = source[key];
+                }
+            } else {
+                // Se non è un oggetto, assegna direttamente il valore
+                output[key] = source[key];
+            }
+        });
+    }
+
+    return output;
+}
+
 function loadState() {
     const savedState = localStorage.getItem('hackerAppState');
     if (savedState) {
-        const loadedState = JSON.parse(savedState);
-        const defaultState = JSON.parse(JSON.stringify(state)); // Copia profonda dello stato di default
-        state = { ...defaultState, ...loadedState }; // Unione che preserva le nuove chiavi
+        try {
+            const loadedState = JSON.parse(savedState);
+            // Usa la nuova funzione deepMerge per unire in modo sicuro lo stato salvato con quello di default
+            state = deepMerge(state, loadedState);
+        } catch (e) {
+            console.error("Errore nel parsing dello stato salvato, reset in corso.", e);
+            localStorage.removeItem('hackerAppState');
+        }
+    }
+    initializeDynamicState();
+}
+
+
+function initializeDynamicState() {
+    if (!state.identity.realIp) {
+        state.identity.realIp = generateRandomIp();
+    }
+
+    for (const serviceId in state.purchasedServices) {
+        if (state.purchasedServices[serviceId] && !state.purchasedServices[serviceId].currentIp) {
+            const serviceData = marketData.networkServices.find(s => s.id === serviceId);
+            state.purchasedServices[serviceId].currentIp = serviceData ? serviceData.ipAddress : generateRandomIp();
+        }
+    }
+
+    if (state.clan && state.clan.infrastructure) {
+        if (state.clan.infrastructure.c_vpn && !state.clan.infrastructure.c_vpn.currentIp) {
+            const tier = state.clan.infrastructure.c_vpn.tier - 1;
+            const vpnData = marketData.clanInfrastructure.c_vpn.tiers[tier];
+            state.clan.infrastructure.c_vpn.currentIp = vpnData ? vpnData.ipAddress : generateRandomIp();
+        }
+        if (state.clan.infrastructure.c_firewall && !state.clan.infrastructure.c_firewall.currentIp) {
+             const tier = state.clan.infrastructure.c_firewall.tier - 1;
+             const firewallData = marketData.clanInfrastructure.c_firewall.tiers[tier];
+             state.clan.infrastructure.c_firewall.currentIp = firewallData ? firewallData.ipAddress : generateRandomIp();
+        }
     }
 }
+
 
 function resetState() {
     if (confirm('Sei sicuro di voler resettare tutti i progressi? Questa azione è irreversibile.')) {
@@ -164,7 +259,7 @@ async function switchPage(pageName) {
 }
 
 function updateUI() {
-    btcBalanceEl.textContent = state.btc.toFixed(6); 
+    btcBalanceEl.textContent = state.btc.toFixed(6);
     xmrBalanceEl.textContent = state.xmr;
     talentPointsEl.textContent = state.talentPoints;
 
@@ -318,7 +413,7 @@ function checkStudyProgress() {
     if (changed) {
         saveState();
         if (state.activePage === 'profile') {
-            renderTalentTree(); 
+            renderTalentTree();
             if (state.activeProfileSection === 'talents' && currentOpenTalent) {
                 const talent = findTalentByName(currentOpenTalent);
                 if (talent) openTalentModal(currentOpenTalent, talent);
@@ -334,11 +429,11 @@ function init() {
     loadState();
     updateAllBonuses();
     updateUI();
-    
+
     document.querySelectorAll('nav .nav-btn').forEach(button => {
         button.addEventListener('click', () => switchPage(button.dataset.page));
     });
-    
+
     resetButton.addEventListener('click', resetState);
     switchPage(state.activePage || 'hq');
     initAdminPanel();

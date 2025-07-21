@@ -1,11 +1,14 @@
+// File: js/modules/profile.js
+// VERSIONE CORRETTA: Visualizzazione IP e refresh per tutte le infrastrutture clan.
+
 function switchProfileSection(sectionName) {
     state.activeProfileSection = sectionName;
     document.querySelectorAll('.profile-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.profile-sidebar-btn').forEach(b => b.classList.remove('active'));
-    
+
     const sectionEl = document.getElementById(`${sectionName}-section`);
     const buttonEl = document.querySelector(`.profile-sidebar-btn[data-section="${sectionName}"]`);
-    
+
     if(sectionEl) sectionEl.classList.add('active');
     if(buttonEl) buttonEl.classList.add('active');
 
@@ -14,7 +17,7 @@ function switchProfileSection(sectionName) {
     } else if (sectionName === 'data-locker') {
         renderDataLockerSection();
     }
-    
+
     saveState();
 }
 
@@ -66,7 +69,7 @@ function createTalentCard(talentName, talent) {
 function openTalentModal(talentName, talent) {
     const talentModal = document.getElementById('talent-modal');
     talentModal.classList.remove('hidden');
-    
+
     const unlockedLevels = state.unlocked[talentName] || 0;
     let levelsHtml = '';
 
@@ -75,7 +78,7 @@ function openTalentModal(talentName, talent) {
         const isUnlocked = index < unlockedLevels;
         const canStudy = (index === unlockedLevels) && (state.talentPoints >= level.cost);
         const isStudying = state.studying[levelId];
-        
+
         let buttonHtml = '';
         if(isStudying) {
             const speedUpCost = 5;
@@ -172,10 +175,10 @@ function closeModal(modalElement) {
 function renderProfileContent() {
     const identitySection = document.getElementById('identity-section');
     identitySection.innerHTML = `<h2 class="text-3xl font-bold mb-4 branch-title">Stato dell'Identità</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="bg-gray-800 p-4 rounded-lg"><h3 class="text-lg font-semibold mb-2 text-red-400">Dati Esposti</h3><div class="space-y-2 text-sm"><p>Sei stato hackerato: <span id="hacked-status" class="font-bold text-white"></span></p><p>Tracce lasciate: <span id="traces-left" class="font-bold text-white"></span></p></div></div><div class="bg-gray-800 p-4 rounded-lg"><h3 class="text-lg font-semibold mb-2 text-yellow-400">Stato di Indagine</h3><div class="space-y-2 text-sm"><p>Indagato da: <span id="investigated-by" class="font-bold text-white"></span></p><p>Livello di Sospetto:</p><div class="w-full bg-gray-700 rounded-full h-2.5"><div id="suspicion-bar" class="bg-yellow-500 h-2.5 rounded-full"></div></div></div></div></div>`;
-    
+
     const moralitySection = document.getElementById('morality-section');
     moralitySection.innerHTML = `<h2 class="text-3xl font-bold mb-4 branch-title">Sistema di Moralità</h2><div class="bg-gray-800 p-4 rounded-lg"><div class="flex justify-between items-center mb-2 font-bold"><span class="text-blue-400">White Hat</span><span class="text-gray-400">Grey Hat</span><span class="text-red-400">Black Hat</span></div><div class="w-full bg-gradient-to-r from-blue-500 via-gray-500 to-red-500 rounded-full h-4 relative"><div id="morality-indicator" class="absolute top-1/2 w-5 h-5 bg-white rounded-full border-2 border-gray-900" style="transform: translate(-50%, -50%);"></div></div><div class="mt-4 text-center"><p>Allineamento attuale: <span id="morality-status" class="font-bold"></span></p></div><div class="mt-6 flex justify-center gap-4"><button id="action-white-hat" class="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 hover:bg-blue-700">Azione White Hat</button><button id="action-black-hat" class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-700">Azione Black Hat</button></div></div>`;
-    
+
     renderTalentTree();
     updateProfileData();
 
@@ -211,7 +214,7 @@ function renderClanSection() {
             <div class="space-y-6">
                 <div class="clan-card p-6 rounded-lg">
                     <h3 class="text-xl font-semibold mb-2">Crea un nuovo Clan</h3>
-                    <p class="text-gray-400 mb-4 text-sm">Fonda la tua organizzazione, recluta membri e scala le classifiche. Costo di fondazione: 20,000 BTC.</p>
+                    <p class="text-gray-400 mb-4 text-sm">Fonda la tua organizzazione, recluta membri e scala le classifiche. Costo di fondazione: 0.3 BTC.</p>
                     <div class="flex gap-2">
                         <input type="text" id="clan-name-input" placeholder="Nome Clan" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 w-full text-white">
                         <input type="text" id="clan-tag-input" placeholder="TAG" maxlength="4" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 w-20 text-white">
@@ -228,7 +231,7 @@ function renderClanSection() {
     } else {
         const { name, tag, rank, treasury, members, infrastructure, level, xp, xpToNextLevel, ecosystem } = state.clan;
         const xpPercentage = (xpToNextLevel > 0) ? (xp / xpToNextLevel) * 100 : 0;
-        
+
         const maxSecurity = 250;
         const maxCapacity = 250;
         const securityPercentage = (ecosystem && ecosystem.security) ? (ecosystem.security / maxSecurity) * 100 : 0;
@@ -236,7 +239,7 @@ function renderClanSection() {
 
         let actionsHTML = `<button id="leave-clan-btn" class="w-full px-4 py-2 font-semibold rounded-md bg-red-600 hover:bg-red-700">Abbandona Clan</button>`;
         const isLeader = state.clan.members.find(m => m.name === state.hackerName && m.role === 'Leader');
-        
+
         if (isLeader) {
             if (state.clan.darkMarket) {
                 actionsHTML += `<button id="delete-dark-market-btn" class="w-full mt-2 px-4 py-2 font-semibold rounded-md bg-yellow-600 hover:bg-yellow-700 text-black">Smantella Dark Market</button>`;
@@ -309,7 +312,7 @@ function renderClanSection() {
                 </div>
             </div>
         `;
-        
+
         const memberList = document.getElementById('clan-member-list');
         members.forEach(m => {
             memberList.innerHTML += `<div class="member-list-item p-2 rounded flex justify-between items-center"><span>${m.name}</span><span class="font-bold text-sm ${m.role === 'Leader' ? 'role-leader' : 'role-member'}">${m.role}</span></div>`;
@@ -338,7 +341,6 @@ function renderClanSection() {
 
 function createClan() { const name = document.getElementById('clan-name-input').value.trim(); const tag = document.getElementById('clan-tag-input').value.trim().toUpperCase(); const costUSD = 20000; const costInBtc = costUSD / state.btcValueInUSD; if (!name || !tag) { alert("Nome e TAG sono obbligatori."); return; } if (tag.length > 4) { alert("Il TAG può avere max 4 caratteri."); return; } if (state.btc < costInBtc) { alert(`Non hai abbastanza BTC. Costo: ~${costInBtc.toFixed(6)} BTC.`); return; } if (confirm(`Creare il clan "${name}" per ~${costInBtc.toFixed(6)} BTC?`)) { state.btc -= costInBtc; state.clan = { id: Date.now() % 1000, name, tag, rank: 1, treasury: 0, level: 1, xp: 0, xpToNextLevel: 500, members: [{ name: state.hackerName, role: 'Leader' }], infrastructure: {}, ecosystem: { security: 0, capacity: 0, total: 0 } }; updateClanEcosystemScore(); updateUI(); renderClanSection(); saveState(); } }
 
-
 function createDarkMarket() {
     const cost = 500000;
     const costInBtc = cost / state.btcValueInUSD;
@@ -352,7 +354,7 @@ function createDarkMarket() {
     }
 
     const modal = document.getElementById('talent-modal');
-    let serverOptions = state.clan.infrastructure.servers.map(server => 
+    let serverOptions = state.clan.infrastructure.servers.map(server =>
         `<button class="server-choice-btn w-full text-left p-3 rounded-md bg-gray-700 hover:bg-indigo-600" data-server-id="${server.id}">
             Server #${server.id} (${server.ip})
         </button>`
@@ -396,15 +398,15 @@ function deleteDarkMarket() {
     }
 }
 
-function donateToClan() { 
-    const amount = parseFloat(document.getElementById('donation-amount').value); 
-    if (isNaN(amount) || amount <= 0) { alert("Importo non valido."); return; } 
-    if (state.btc < amount) { alert("Non hai abbastanza BTC."); return; } 
-    state.btc -= amount; 
-    state.clan.treasury += amount; 
-    updateUI(); 
-    renderClanSection(); 
-    saveState(); 
+function donateToClan() {
+    const amount = parseFloat(document.getElementById('donation-amount').value);
+    if (isNaN(amount) || amount <= 0) { alert("Importo non valido."); return; }
+    if (state.btc < amount) { alert("Non hai abbastanza BTC."); return; }
+    state.btc -= amount;
+    state.clan.treasury += amount;
+    updateUI();
+    renderClanSection();
+    saveState();
 }
 
 
@@ -417,77 +419,42 @@ function leaveClan() {
     }
 }
 
+// VERSIONE RISCRITTA
 function createInfraCard(infraId, infraState) {
+    // Gestione Server (logica quasi invariata ma ripulita)
     if (infraId === 'servers') {
         const serverData = marketData.clanInfrastructure.clanServer;
         const container = document.createElement('div');
         container.className = 'space-y-4';
-        
+        if (!infraState || infraState.length === 0) return container;
+
         infraState.forEach(server => {
             const card = document.createElement('div');
             card.className = 'infra-card p-4 rounded-lg';
-            
             let flowSlotsHTML = `<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">
                                  <h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${server.attachedFlows.filter(f => f).length}/${serverData.flowSlots})</h5>`;
-
             for (let i = 0; i < serverData.flowSlots; i++) {
                 const attachedFlow = server.attachedFlows[i];
                 if (attachedFlow) {
-                    flowSlotsHTML += `
-                        <div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md">
-                            <span class="text-xs font-mono text-indigo-300">${attachedFlow}</span>
-                            <button class="detach-flow-server-btn text-red-500 hover:text-red-400 text-xs" data-server-id="${server.id}" data-slot-index="${i}">
-                                <i class="fas fa-times-circle"></i> Sgancia
-                            </button>
-                        </div>`;
+                     flowSlotsHTML += `<div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md"><span class="text-xs font-mono text-indigo-300">${attachedFlow}</span><button class="detach-flow-server-btn text-red-500 hover:text-red-400 text-xs" data-server-id="${server.id}" data-slot-index="${i}"><i class="fas fa-times-circle"></i> Sgancia</button></div>`;
                 } else {
-                    let options = '<option value="">Seleziona Flusso...</option>';
-                    Object.keys(state.savedFlows).forEach(name => {
-                        options += `<option value="${name}">${name}</option>`;
-                    });
-                    flowSlotsHTML += `
-                        <div class="flex items-center gap-2">
-                            <select class="flow-select-server bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">
-                                ${options}
-                            </select>
-                            <button class="attach-flow-server-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-server-id="${server.id}" data-slot-index="${i}">
-                                Aggancia
-                            </button>
-                        </div>`;
+                     let options = '<option value="">Seleziona Flusso...</option>';
+                     Object.keys(state.savedFlows).forEach(name => { options += `<option value="${name}">${name}</option>`; });
+                     flowSlotsHTML += `<div class="flex items-center gap-2"><select class="flow-select-server bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">${options}</select><button class="attach-flow-server-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-server-id="${server.id}" data-slot-index="${i}">Aggancia</button></div>`;
                 }
             }
             flowSlotsHTML += '</div>';
 
-            card.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <h4 class="text-lg font-bold text-white flex items-center gap-3">
-                        <i class="fas ${serverData.icon}"></i>
-                        Server Clan #${server.id}
-                    </h4>
-                    <span class="font-mono text-sm text-green-400">${server.ip}</span>
-                </div>
-                ${flowSlotsHTML}
-            `;
+            card.innerHTML = `<div class="flex justify-between items-center"><h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${serverData.icon}"></i>Server Clan #${server.id}</h4><span class="font-mono text-sm text-green-400">${server.ip}</span></div>${flowSlotsHTML}`;
             container.appendChild(card);
         });
-
-        container.querySelectorAll('.attach-flow-server-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const select = btn.previousElementSibling;
-                if (select.value) {
-                    attachFlowToServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex), select.value);
-                }
-            });
-        });
-        container.querySelectorAll('.detach-flow-server-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                detachFlowFromServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex));
-            });
-        });
-
+        // Aggiungi event listener dopo aver creato tutte le card
+        container.querySelectorAll('.attach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => attachFlowToServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex), btn.previousElementSibling.value)));
+        container.querySelectorAll('.detach-flow-server-btn').forEach(btn => btn.addEventListener('click', () => detachFlowFromServer(parseInt(btn.dataset.serverId), parseInt(btn.dataset.slotIndex))));
         return container;
     }
 
+    // Gestione di tutte le altre infrastrutture con tier (VPN, Firewall, etc.)
     const infraData = marketData.clanInfrastructure[infraId];
     if (!infraData || !infraData.tiers) return document.createElement('div');
 
@@ -495,75 +462,54 @@ function createInfraCard(infraId, infraState) {
     const card = document.createElement('div');
     card.className = 'infra-card p-4 rounded-lg';
 
+    // Bottone di Upgrade
     let upgradeButtonHTML = '';
     if (infraState.tier < infraData.tiers.length) {
         const nextTier = infraData.tiers[infraState.tier];
         const costInBtc = nextTier.costUSD / state.btcValueInUSD;
         const canAfford = state.clan.treasury >= costInBtc;
-        upgradeButtonHTML = `
-            <button class="upgrade-infra-btn px-3 py-1 text-xs font-semibold rounded-md ${canAfford ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed'}"
-                    data-infra-id="${infraId}" ${!canAfford ? 'disabled' : ''}>
-                Potenzia a T${infraState.tier + 1} (~${costInBtc.toFixed(6)} BTC)
-            </button>`;
+        upgradeButtonHTML = `<button class="upgrade-infra-btn px-3 py-1 text-xs font-semibold rounded-md ${canAfford ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed'}" data-infra-id="${infraId}" ${!canAfford ? 'disabled' : ''}>Potenzia a T${infraState.tier + 1} (~${costInBtc.toFixed(6)} BTC)</button>`;
     } else {
         upgradeButtonHTML = `<span class="px-3 py-1 text-xs font-semibold text-green-400">Livello Massimo</span>`;
     }
 
-    let ipAndFlowsHTML = '<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">';
-
-    if (infraId === 'c_vpn' && infraState.currentIp) {
-        ipAndFlowsHTML += `
+    // Sezione IP e Slot Flussi
+    let detailsHTML = '<div class="mt-3 pt-3 border-t border-gray-600 space-y-2">';
+    // Mostra IP e bottone refresh se l'infrastruttura ne ha uno
+    if (infraState.currentIp && currentTier.refreshCostXMR) {
+        detailsHTML += `
             <div class="flex items-center justify-between text-sm">
                 <span class="text-gray-300 font-semibold">IP Pubblico:</span>
                 <div class="flex items-center gap-2">
                     <span class="font-mono text-white">${infraState.currentIp}</span>
-                    <button class="refresh-clan-vpn-ip-btn px-2 py-1 text-xs font-semibold rounded-md bg-purple-600 hover:bg-purple-700" title="Cambia IP (${currentTier.refreshCostXMR} XMR)">
+                    <button class="refresh-ip-btn px-2 py-1 text-xs font-semibold rounded-md bg-purple-600 hover:bg-purple-700" data-service-id="${currentTier.id}" title="Cambia IP (${currentTier.refreshCostXMR} XMR)">
                         <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
             </div>`;
     }
 
+    // Gestione Slot Flussi (se presenti)
     if (currentTier.flowSlots > 0) {
-         ipAndFlowsHTML += `<h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${infraState.attachedFlows.filter(f => f).length}/${currentTier.flowSlots})</h5>`;
+        detailsHTML += `<h5 class="text-sm font-semibold text-gray-300">Slot Flussi (${infraState.attachedFlows.filter(f => f).length}/${currentTier.flowSlots})</h5>`;
         for(let i = 0; i < currentTier.flowSlots; i++) {
-            const attachedFlow = infraState.attachedFlows[i];
-            if (attachedFlow) {
-                ipAndFlowsHTML += `
-                    <div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md">
-                        <span class="text-xs font-mono text-indigo-300">${attachedFlow}</span>
-                        <button class="detach-flow-btn text-red-500 hover:text-red-400 text-xs" data-infra-id="${infraId}" data-slot-index="${i}">
-                            <i class="fas fa-times-circle"></i> Sgancia
-                        </button>
-                    </div>`;
-            } else {
-                 let options = '<option value="">Seleziona Flusso...</option>';
-                 Object.keys(state.savedFlows).forEach(name => {
-                     options += `<option value="${name}">${name}</option>`;
-                 });
-                 ipAndFlowsHTML += `
-                    <div class="flex items-center gap-2">
-                        <select class="flow-select bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">
-                            ${options}
-                        </select>
-                        <button class="attach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-infra-id="${infraId}" data-slot-index="${i}">
-                            Aggancia
-                        </button>
-                    </div>`;
-            }
+             const attachedFlow = infraState.attachedFlows[i];
+             if (attachedFlow) {
+                 detailsHTML += `<div class="flex items-center justify-between bg-gray-800/50 p-2 rounded-md"><span class="text-xs font-mono text-indigo-300">${attachedFlow}</span><button class="detach-flow-btn text-red-500 hover:text-red-400 text-xs" data-infra-id="${infraId}" data-slot-index="${i}"><i class="fas fa-times-circle"></i> Sgancia</button></div>`;
+             } else {
+                  let options = '<option value="">Seleziona Flusso...</option>';
+                  Object.keys(state.savedFlows).forEach(name => { options += `<option value="${name}">${name}</option>`; });
+                  detailsHTML += `<div class="flex items-center gap-2"><select class="flow-select bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs w-full">${options}</select><button class="attach-flow-btn px-2 py-1 text-xs font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700" data-infra-id="${infraId}" data-slot-index="${i}">Aggancia</button></div>`;
+             }
         }
-    } else {
-        ipAndFlowsHTML += `<p class="text-xs text-gray-500">Questa infrastruttura non supporta flussi.</p>`;
     }
-    ipAndFlowsHTML += '</div>';
+    detailsHTML += '</div>';
 
+    // Assemblaggio finale della card
     card.innerHTML = `
         <div class="flex justify-between items-start">
             <div>
-                <h4 class="text-lg font-bold text-white flex items-center gap-3">
-                    <i class="fas ${infraData.icon}"></i>
-                    ${infraData.name}
-                </h4>
+                <h4 class="text-lg font-bold text-white flex items-center gap-3"><i class="fas ${infraData.icon}"></i>${infraData.name}</h4>
                 <p class="text-sm text-gray-400 mt-1">${currentTier.description}</p>
             </div>
             <div class="text-right">
@@ -571,32 +517,23 @@ function createInfraCard(infraId, infraState) {
                 <div class="mt-2">${upgradeButtonHTML}</div>
             </div>
         </div>
-        ${ipAndFlowsHTML}
+        ${detailsHTML}
     `;
 
+    // Aggiunta Event Listener
     card.querySelectorAll('.upgrade-infra-btn').forEach(btn => btn.addEventListener('click', () => upgradeInfra(btn.dataset.infraId)));
-    card.querySelectorAll('.attach-flow-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const select = btn.previousElementSibling;
-            if (select.value) {
-                attachFlow(btn.dataset.infraId, btn.dataset.slotIndex, select.value);
-            }
-        });
-    });
+    card.querySelectorAll('.attach-flow-btn').forEach(btn => btn.addEventListener('click', () => attachFlow(btn.dataset.infraId, btn.dataset.slotIndex, btn.previousElementSibling.value)));
     card.querySelectorAll('.detach-flow-btn').forEach(btn => btn.addEventListener('click', () => detachFlow(btn.dataset.infraId, btn.dataset.slotIndex)));
-    
-    const refreshBtn = card.querySelector('.refresh-clan-vpn-ip-btn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', refreshClanVpnIp);
-    }
+    card.querySelectorAll('.refresh-ip-btn').forEach(btn => btn.addEventListener('click', (e) => refreshVpnIp(e.target.closest('button').dataset.serviceId)));
 
     return card;
 }
 
+
 function upgradeInfra(infraId) {
     const infraData = marketData.clanInfrastructure[infraId];
     const infraState = state.clan.infrastructure[infraId];
-    
+
     if (infraState.tier >= infraData.tiers.length) {
         alert("Infrastruttura già al livello massimo.");
         return;
@@ -609,8 +546,8 @@ function upgradeInfra(infraId) {
         if(confirm(`Potenziare ${infraData.name} a Tier ${infraState.tier + 1} per ~${costInBtc.toFixed(6)} BTC?`)) {
             state.clan.treasury -= costInBtc;
             infraState.tier++;
-            // Se è una VPN, aggiorna l'IP al nuovo IP del tier
-            if (infraId === 'c_vpn') {
+            // Se l'infrastruttura ha un IP, aggiornalo a quello del nuovo tier
+            if (nextTier.ipAddress) {
                 infraState.currentIp = nextTier.ipAddress;
             }
             updateAllBonuses();
@@ -625,6 +562,7 @@ function upgradeInfra(infraId) {
 }
 
 function attachFlow(infraId, slotIndex, flowName) {
+    if(!flowName) return;
     const infraState = state.clan.infrastructure[infraId];
     if (infraState.attachedFlows[slotIndex]) {
         alert("Slot già occupato.");
@@ -637,15 +575,12 @@ function attachFlow(infraId, slotIndex, flowName) {
 
 function detachFlow(infraId, slotIndex) {
     state.clan.infrastructure[infraId].attachedFlows[slotIndex] = null;
-    const flows = state.clan.infrastructure[infraId].attachedFlows;
-    while(flows.length > 0 && flows[flows.length - 1] == null) {
-        flows.pop();
-    }
     saveState();
     renderClanSection();
 }
 
 function attachFlowToServer(serverId, slotIndex, flowName) {
+    if (!flowName) return;
     if (!state.clan || !state.clan.infrastructure.servers) return;
     const server = state.clan.infrastructure.servers.find(s => s.id === serverId);
     if (server && server.attachedFlows[slotIndex] === null) {
@@ -735,7 +670,7 @@ function renderDataLockerSection() {
 
     container.innerHTML = `
         <h2 class="text-3xl font-bold mb-6 branch-title">Archivio Dati</h2>
-        
+
         <div class="mb-8">
             <h3 class="text-xl font-semibold mb-4 text-yellow-300">Archivio Intel (Dati Missione)</h3>
             <div class="space-y-4">

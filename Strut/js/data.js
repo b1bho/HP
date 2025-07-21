@@ -253,7 +253,39 @@ const marketData = {
     ],
     clanInfrastructure: {
         'clanServer': { id: 'c_server', name: 'Server Clan Dedicato', icon: 'fa-server', description: 'Un server dedicato per le operazioni del clan.', costUSD: 15000, points: { capacity: 20, security: 5 }, flowSlots: 2 },
-        'c_firewall': { id: 'c_firewall', name: 'Firewall Clan', icon: 'fa-shield-halved', tiers: [ { id: 'c_firewall_t1', name: 'Firewall Base', description: 'Protezione di base contro attacchi esterni.', costUSD: 7500, bonus: { type: 'toolStat', stat: 'rl', value: -1 }, flowSlots: 1, points: { security: 15 } }, { id: 'c_firewall_t2', name: 'Firewall Avanzato', description: 'Filtri avanzati e IDS.', costUSD: 40000, bonus: { type: 'toolStat', stat: 'rl', value: -3 }, flowSlots: 2, points: { security: 35 } } ] },
+        // File: js/data.js (snippet da modificare)
+
+'c_firewall': {
+    id: 'c_firewall',
+    name: 'Firewall Clan',
+    icon: 'fa-shield-halved',
+    tiers: [
+        {
+            id: 'c_firewall_t1',
+            name: 'Firewall Base',
+            description: 'Protezione di base contro attacchi esterni.',
+            costUSD: 7500,
+            bonus: { type: 'toolStat', stat: 'rl', value: -1 },
+            flowSlots: 1,
+            points: { security: 15 },
+            // Aggiunte per IP
+            ipAddress: '95.142.10.1',
+            refreshCostXMR: 15
+        },
+        {
+            id: 'c_firewall_t2',
+            name: 'Firewall Avanzato',
+            description: 'Filtri avanzati e IDS.',
+            costUSD: 40000,
+            bonus: { type: 'toolStat', stat: 'rl', value: -3 },
+            flowSlots: 2,
+            points: { security: 35 },
+            // Aggiunte per IP
+            ipAddress: '95.142.10.2',
+            refreshCostXMR: 30
+        }
+    ]
+},
         'c_network': { id: 'c_network', name: 'Rete Clan', icon: 'fa-network-wired', tiers: [ { id: 'c_network_t1', name: 'Rete Fibra', description: 'Aumenta la banda per le operazioni.', costUSD: 12000, bonus: { type: 'toolStat', stat: 'eo', value: 1 }, flowSlots: 0, points: { capacity: 10, security: 5 } }, { id: 'c_network_t2', name: 'Rete Globale', description: 'Routing ottimizzato e banda massiccia.', costUSD: 60000, bonus: { type: 'toolStat', stat: 'eo', value: 3 }, flowSlots: 0, points: { capacity: 25, security: 10 } } ] },
         'c_vpn': { 
             id: 'c_vpn', name: 'VPN Privata Clan', icon: 'fa-user-secret', 
