@@ -274,7 +274,7 @@ function renderAttackSection(panel) {
                 <div id="available-nodes" class="space-y-2 p-2 bg-black/20 rounded-lg h-48 overflow-y-auto"></div>
             </div>
             <div class="md:col-span-2">
-                <h4 class="text-sm font-bold mb-2 text-gray-300">Catena di Routing</h4>
+                <h4 class="text-sm font-bold mb-2 text-gray-300">Catena di Routing (Opzionale)</h4>
                 <div id="routing-chain" class="space-y-2">${routingSlotsHTML}</div>
             </div>
         </div>
@@ -284,7 +284,7 @@ function renderAttackSection(panel) {
             <select id="flow-select" class="bg-gray-800 border border-gray-600 rounded-md px-3 py-2 text-white w-full text-base focus:ring-indigo-500 focus:border-indigo-500">
                 ${Object.keys(state.savedFlows).map(name => `<option value="${name}">${name}</option>`).join('')}
             </select>
-            <button id="launch-attack-button" class="w-full sm:w-auto px-4 py-3 font-medium rounded-md bg-red-600 hover:bg-red-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed text-lg" disabled>
+            <button id="launch-attack-button" class="w-full sm:w-auto px-4 py-3 font-medium rounded-md bg-red-600 hover:bg-red-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed text-lg">
                 <i class="fas fa-rocket mr-2"></i>Lancia
             </button>
         </div>
@@ -295,7 +295,10 @@ function renderAttackSection(panel) {
     updateRoutingSummaryUI();
     renderRoutingChain();
     panel.querySelector('#launch-attack-button').addEventListener('click', launchAttack);
-    panel.querySelector('#flow-select').addEventListener('change', renderRoutingChain);
+    panel.querySelector('#flow-select').addEventListener('change', () => {
+        renderRoutingChain();
+        updateRoutingSummaryUI();
+    });
 }
 
 function populateAvailableNodes() {
@@ -482,10 +485,10 @@ function calculateRoutingModifiers(chain) {
 
     activeNodes.forEach(nodeWrapper => {
         const node = nodeWrapper.data;
-        modifiers.latency += node.latency;
-        modifiers.blockRisk += node.blockRisk;
+        modifiers.latency += node.latency || 0;
+        modifiers.blockRisk += node.blockRisk || 0;
         modifiers.costUSD += node.costUSD || 0;
-        modifiers.anonymity += node.anonymity;
+        modifiers.anonymity += node.anonymity || 0;
         if (node.reliability < modifiers.reliability) {
             modifiers.reliability = node.reliability;
         }
@@ -496,7 +499,7 @@ function calculateRoutingModifiers(chain) {
 function updateRoutingSummaryUI() {
     const summaryEl = document.getElementById('routing-summary');
     const launchBtn = document.getElementById('launch-attack-button');
-    if (!summaryEl) return;
+    if (!summaryEl || !launchBtn) return;
 
     const modifiers = calculateRoutingModifiers(currentRoutingChain);
     const costInBtc = modifiers.costUSD / state.btcValueInUSD;
@@ -508,19 +511,22 @@ function updateRoutingSummaryUI() {
         <div>Anonimato: <span class="text-white">+${modifiers.anonymity} AN</span></div>
     `;
     
-    launchBtn.disabled = currentRoutingChain.filter(n => n).length === 0;
+    // **FIX**: The button is enabled as long as a target and flow are selected.
+    const flowSelect = document.getElementById('flow-select');
+    launchBtn.disabled = !(selectedTarget && flowSelect && flowSelect.value);
 }
 
 // --- FUNZIONE MODIFICATA ---
 function launchAttack() {
     const flowName = document.getElementById('flow-select').value;
-    const activeNodes = currentRoutingChain.filter(n => n);
-
-    if (!selectedTarget || !flowName || activeNodes.length === 0) {
-        alert("Errore: Seleziona un target, un flusso e costruisci una catena di routing.");
+    
+    // **FIX**: The check for active nodes is removed.
+    if (!selectedTarget || !flowName) {
+        alert("Errore: Seleziona un target e un flusso.");
         return;
     }
-
+    
+    const activeNodes = currentRoutingChain.filter(n => n);
     const flow = state.savedFlows[flowName];
     const target = selectedTarget;
     const routingModifiers = calculateRoutingModifiers(currentRoutingChain);
@@ -538,13 +544,12 @@ function launchAttack() {
     finalFlowStats.rl += Math.floor(routingModifiers.blockRisk * 10);
     finalFlowStats.rc = parseFloat((finalFlowStats.rc * routingModifiers.reliability).toFixed(2));
 
-    // Aggiungi bonus dalla botnet se l'attacco parte da lì
     if (flow.host && flow.host.type === 'botnet_group') {
         const group = state.botnetGroups[flow.host.name];
         if (group) {
             const activeHosts = state.infectedHostPool.filter(h => group.hostIds.includes(h.id) && h.status === 'Active');
             const aggregatePower = activeHosts.reduce((sum, host) => sum + host.resources.cpuPower, 0);
-            finalFlowStats.eo += Math.floor(aggregatePower / 10); // Bonus all'efficienza
+            finalFlowStats.eo += Math.floor(aggregatePower / 10);
         }
     }
 

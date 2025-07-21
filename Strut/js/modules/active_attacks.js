@@ -135,9 +135,40 @@ function handleAttackConsequences(attack, successRatio, effectiveStats) {
 
     if (traceSuccessful) {
         let sourceIp = state.identity.realIp;
+        let traceDetails = `La catena di routing non ha retto. L'IP di origine è stato tracciato.`; // Messaggio di default
+
         if (attack.host && attack.host.type === 'clan') {
             const server = state.clan.infrastructure.servers.find(s => s.id === attack.host.serverId);
-            if (server) sourceIp = server.ip;
+            if (server) {
+                sourceIp = server.ip;
+                traceDetails = `L'attacco è stato tracciato fino al server del clan: ${server.ip}.`;
+            }
+        } 
+        // **FIX**: Logica specifica per attacchi da botnet
+        else if (attack.host && attack.host.type === 'botnet_group') {
+            const groupName = attack.host.name;
+            const group = state.botnetGroups[groupName];
+            sourceIp = `Gruppo Botnet: ${groupName}`; // L'origine è il gruppo
+
+            if (group && group.hostIds.length > 0) {
+                const hostIPs = group.hostIds.map(hostId => {
+                    const host = state.infectedHostPool.find(h => h.id === hostId);
+                    if (host) {
+                        // Aumenta la tracciabilità dei singoli bot coinvolti
+                        host.traceabilityScore = Math.min(100, (host.traceabilityScore || 0) + traceIncrease);
+                        return host.ipAddress;
+                    }
+                    return null;
+                }).filter(ip => ip);
+
+                if (hostIPs.length > 0) {
+                    traceDetails = `L'attacco è stato tracciato fino al gruppo botnet '${groupName}'. IP esposti: ${hostIPs.join(', ')}.`;
+                } else {
+                    traceDetails = `L'attacco è stato tracciato fino al gruppo botnet '${groupName}', ma non sono stati trovati IP specifici.`;
+                }
+            } else {
+                 traceDetails = `L'attacco è stato tracciato fino al gruppo botnet '${groupName}', ma il gruppo è vuoto o non è stato trovato.`;
+            }
         }
 
         if (!state.ipTraceability[sourceIp]) state.ipTraceability[sourceIp] = 0;
@@ -149,11 +180,11 @@ function handleAttackConsequences(attack, successRatio, effectiveStats) {
             ip: sourceIp,
             date: new Date().toISOString().split('T')[0],
             target: attack.target.name,
-            details: `La catena di routing non ha retto. L'IP di origine è stato tracciato.`
+            details: traceDetails // Usa il messaggio dettagliato
         });
         if(state.traceLogs.length > 20) state.traceLogs.pop();
         
-        showNotification(`ATTENZIONE: Il tuo IP di origine (${sourceIp}) è stato tracciato!`, 'error');
+        showNotification(`ATTENZIONE: L'origine del tuo attacco (${sourceIp}) è stata tracciata!`, 'error');
         state.identity.suspicion = Math.min(100, state.identity.suspicion + Math.ceil(traceIncrease / 2));
     }
 

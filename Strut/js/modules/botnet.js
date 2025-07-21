@@ -170,14 +170,23 @@ function renderHostDetailsPanel() {
 
         let flowSlotsHTML = '';
         const numSlots = host.resources?.flowSlots || 1;
+        
+        // **FIX**: Convert the savedFlows object into an array of objects with 'id' and 'name' properties
+        const flowsArray = state.savedFlows ? Object.keys(state.savedFlows).map(key => {
+            return {
+                ...state.savedFlows[key], // Copy original flow properties
+                id: key,                  // The key is the ID
+                name: key                 // Use the key as the name
+            };
+        }) : [];
+
         for (let i = 0; i < numSlots; i++) {
             const hookedFlowId = host.hookedFlows?.[i];
-            const flow = hookedFlowId ? state.savedFlows.find(f => f.id === hookedFlowId) : null;
+            const flow = hookedFlowId ? flowsArray.find(f => f.id === hookedFlowId) : null;
             
-            // **CORREZIONE**: Aggiunto controllo Array.isArray
-            const flowsOptions = Array.isArray(state.savedFlows) 
-                ? state.savedFlows.map(f => `<option value="${f.id}" ${f.id === hookedFlowId ? 'selected' : ''}>${f.name}</option>`).join('')
-                : '';
+            const flowsOptions = flowsArray.length > 0
+                ? flowsArray.map(f => `<option value="${f.id}" ${f.id === hookedFlowId ? 'selected' : ''}>${f.name}</option>`).join('')
+                : '<option value="" disabled>Nessun flusso salvato</option>';
 
             flowSlotsHTML += `
                 <div class="flow-hook-slot p-3 rounded-lg ${flow ? 'hooked' : ''}">
@@ -395,17 +404,29 @@ function addLogToHost(hostId, message) {
 function hookFlowToSlot(hostId, slotIndex, flowId) {
     const host = state.infectedHostPool.find(h => h.id === hostId);
     if (!host) return;
-    if (!host.hookedFlows) {
-        host.hookedFlows = [];
+
+    const numSlots = host.resources?.flowSlots || 1;
+    if (!Array.isArray(host.hookedFlows) || host.hookedFlows.length !== numSlots) {
+        const oldFlows = host.hookedFlows || [];
+        host.hookedFlows = new Array(numSlots).fill(null);
+        for(let i=0; i < Math.min(oldFlows.length, numSlots); i++) {
+            host.hookedFlows[i] = oldFlows[i];
+        }
     }
     
-    const flowName = flowId ? state.savedFlows.find(f => f.id === flowId)?.name : 'Nessuno';
+    const flowsArray = state.savedFlows ? Object.keys(state.savedFlows).map(key => ({...state.savedFlows[key], id: key, name: key})) : [];
+    const flowName = flowId ? flowsArray.find(f => f.id === flowId)?.name : 'Nessuno';
     host.hookedFlows[slotIndex] = flowId || null;
     
     addLogToHost(hostId, `Flusso "${flowName}" agganciato allo slot ${slotIndex + 1}.`);
+    showNotification(`Flusso "${flowName}" agganciato.`, "info");
+    
     saveState();
+    if (typeof updateUI === 'function') {
+        updateUI();
+    }
     renderHostDetailsPanel();
-    showNotification(`Flusso ${flowName} agganciato.`, "info");
+    renderInfectedHostsList();
 }
 
 function executeFlowOnHost(hostId) {
@@ -417,7 +438,9 @@ function executeFlowOnHost(hostId) {
         showNotification("Nessun flusso agganciato allo slot primario.", "error");
         return;
     }
-    const flow = state.savedFlows.find(f => f.id === flowId);
+    
+    const flowsArray = state.savedFlows ? Object.keys(state.savedFlows).map(key => ({...state.savedFlows[key], id: key, name: key})) : [];
+    const flow = flowsArray.find(f => f.id === flowId);
     if (!flow) {
         showNotification("Flusso agganciato non trovato.", "error");
         return;
@@ -438,7 +461,7 @@ function executeFlowOnHost(hostId) {
             showNotification(msg, 'success');
             addLogToHost(hostId, msg);
 
-            if (flow.blocks.some(b => b.type === 'Esfiltra dati da database')) {
+            if (flow.nodes.some(n => n.name === 'Esfiltra dati da database')) { // Check based on your flow structure
                 const dataPack = {
                     id: `dp_${Date.now()}`,
                     name: `Dati sensibili da ${host.ipAddress}`,
@@ -479,9 +502,10 @@ function propagateFromHost(hostId) {
     if (!host) return;
 
     const flowId = host.hookedFlows?.[0];
-    const flow = flowId ? state.savedFlows.find(f => f.id === flowId) : null;
+    const flowsArray = state.savedFlows ? Object.keys(state.savedFlows).map(key => ({...state.savedFlows[key], id: key, name: key})) : [];
+    const flow = flowId ? flowsArray.find(f => f.id === flowId) : null;
 
-    if (!flow || !flow.blocks.some(b => b.type === 'Genera worm di rete')) {
+    if (!flow || !flow.nodes.some(n => n.name === 'Genera worm di rete')) { // Check based on your flow structure
         showNotification("È necessario un flusso con un blocco 'Genera worm di rete' per la propagazione.", "error");
         addLogToHost(hostId, "Tentativo di propagazione fallito: flusso non idoneo.");
         renderHostDetailsPanel();
@@ -532,4 +556,10 @@ function generateRandomHost() {
         hookedFlows: new Array(newResources.flowSlots).fill(null),
         activityLog: [`[${new Date().toLocaleTimeString('it-IT')}] Infezione riuscita tramite propagazione.`]
     };
+}
+
+// Funzione di supporto per formattare il denaro (se non già presente)
+function formatMoney(amount) {
+    if (typeof amount !== 'number') return '$0';
+    return '$' + amount.toLocaleString('en-US');
 }
