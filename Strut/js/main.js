@@ -2,69 +2,7 @@
 // VERSIONE AGGIORNATA: Aggiunto stato per i gruppi della botnet.
 
 // --- STATO GLOBALE ---
-let state = {
-    talentPoints: 5,
-    btc: 0.1,
-    xmr: 10,
-    btcValueInUSD: 65000,
-    level: 1,
-    xp: 0,
-    xpToNextLevel: 100,
-    unlocked: {},
-    studying: {},
-    hackerName: 'Anon',
-    morality: 0,
-    identity: {
-        hacked: false,
-        traces: 3,
-        investigatedBy: 'Nessuno',
-        suspicion: 15,
-        realIp: "87.15.22.113",
-        isIpDynamic: true,
-    },
-    ipTraceability: {},
-    traceLogs: [],
-    isWorldUnlocked: false,
-    discoveredTargets: [],
-    personalComputer: {
-        slots: 5,
-        attachedFlows: Array.from({ length: 5 }, () => ({ flowName: null, status: 'idle', startTime: 0, duration: 0 })),
-    },
-    infectedHostPool: [],
-    botnetGroups: {}, // NUOVO: Es. { "AlphaGroup": { hostIds: ["host-123", "host-456"], attachedFlows: [] } }
-    storage: {
-        personalMax: 100,
-        personalUsed: 0
-    },
-    dataLocker: {
-        personal: [],
-        clan: []
-    },
-    intelItems: [],
-    activeAttacks: [],
-    activeQuests: [],
-    completedQuests: [],
-    activePage: 'hq',
-    activeProfileSection: 'talents',
-    savedFlows: {},
-    permanentFlows: {},
-    ownedHardware: {},
-    purchasedServices: {},
-    clan: null,
-    hardwareBonuses: {
-        studyTimeModifier: 1,
-        toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 }
-    },
-    clanBonuses: {
-        studyTimeModifier: 1,
-        toolStatModifiers: { rc: 0, eo: 0, an: 0, rl: 0 }
-    },
-    networkAssets: {
-        owned: ['vpn_public_t1'],
-        compromised: []
-    },
-    news: []
-};
+
 
 let lines = [];
 let startSocket = null;

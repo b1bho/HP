@@ -599,3 +599,48 @@ body {
 .trace-bar-fill.trace-high {
     background-color: #ef4444; /* Rosso */
 }
+/* --- STILI PER LA BARRA DI TRACCIABILITÀ --- */
+.trace-bar-bg {
+    width: 100%;
+    height: 6px;
+    background-color: #1f2937;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.trace-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.trace-bar-fill.trace-low {
+    background-color: #22c55e; /* Verde */
+}
+.trace-bar-fill.trace-medium {
+    background-color: #f59e0b; /* Giallo/Ambra */
+}
+.trace-bar-fill.trace-high {
+    background-color: #ef4444; /* Rosso */
+}
+
+/* --- STILI PER IL PANNELLO DETTAGLI HOST --- */
+.flow-hook-slot {
+    background-color: rgba(31, 41, 55, 0.5);
+    border: 1px solid #374151;
+    transition: all 0.2s ease;
+}
+.flow-hook-slot.hooked {
+    background-color: rgba(79, 70, 229, 0.2);
+    border-color: #4f46e5;
+}
+
+.activity-log-panel {
+    background-color: rgba(17, 24, 39, 0.7);
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    height: 132px; /* Altezza fissa per allineamento */
+    overflow-y: auto;
+    font-family: 'Roboto Mono', monospace;
+}

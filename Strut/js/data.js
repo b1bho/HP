@@ -1,5 +1,5 @@
 // File: js/data.js
-// VERSIONE AGGIORNATA: Aggiunto costo di refresh IP per le VPN.
+// VERSIONE AGGIORNATA: Struttura dati per gli host infetti ampliata per supportare la gestione granulare.
 
 const talentData = {
     "Ramo 1: Ingegneria Sociale": {
@@ -408,3 +408,153 @@ const networkNodeData = {
         anonymity: 12, costUSD: 0, location: 'Sconosciuta' 
     },
 };
+
+const initialGameState = {
+    money: 5000,
+    btc: 0.5,
+    level: 1,
+    xp: 0,
+    nextLevelXp: 100,
+    unlocked: {
+        'Python': 1,
+        'Networking (Net)': 1
+    },
+    identity: {
+        current: 'Ghost',
+        traces: 5,
+    },
+    activePage: 'botnet',
+    hardware: {
+        cpu: { level: 1, cores: 4, clock: 2.5 },
+        ram: { level: 1, size: 8 },
+        storage: { level: 1, size: 256 },
+    },
+    software: [
+        { id: 'nmap', name: 'Nmap', version: '1.0', type: 'Scanner' },
+        { id: 'metasploit', name: 'Metasploit', version: '1.0', type: 'Exploit Framework' }
+    ],
+    savedFlows: [
+        { 
+            id: 'flow_1656686400000', 
+            name: 'Scansione Base', 
+            stats: { attack: 10, stealth: 20, cost: 5, time: 30 },
+            blocks: [
+                { id: 'block_1', type: 'scan', config: { scanType: 'portScan' } },
+            ],
+            connections: []
+        },
+        { 
+            id: 'flow_1656686400001', 
+            name: 'Sniffer Dati Semplice', 
+            stats: { attack: 25, stealth: 15, cost: 15, time: 60 },
+            blocks: [
+                { id: 'b1', type: 'Esegui port scan avanzato' },
+                { id: 'b2', type: 'Esfiltra dati da database' }
+            ],
+            connections: [ { from: 'b1', to: 'b2' } ]
+        },
+        { 
+            id: 'flow_1656686400002', 
+            name: 'Worm Propagante', 
+            stats: { attack: 30, stealth: 40, cost: 50, time: 120 },
+            blocks: [
+                { id: 'b1', type: 'Scansione rete locale' },
+                { id: 'b2', type: 'Genera worm di rete' }
+            ],
+            connections: [ { from: 'b1', to: 'b2' } ]
+        }
+    ],
+    infectedHostPool: [
+        {
+            id: 'host_1',
+            ipAddress: '198.51.100.12',
+            location: 'New York, USA',
+            status: 'Active',
+            infectionType: 'Trojan Horse',
+            stabilityScore: 85.5,
+            traceabilityScore: 10.2,
+            resources: {
+                cpuPower: 1.2,
+                bandwidth: 100,
+                flowSlots: 2
+            },
+            hookedFlows: [null, null],
+            activityLog: ['[10:30:00] Infezione riuscita.']
+        },
+        {
+            id: 'host_2',
+            ipAddress: '203.0.113.55',
+            location: 'London, UK',
+            status: 'Active',
+            infectionType: 'Worm',
+            stabilityScore: 92.1,
+            traceabilityScore: 5.8,
+            resources: {
+                cpuPower: 2.5,
+                bandwidth: 500,
+                flowSlots: 3
+            },
+            hookedFlows: [null, null, null],
+            activityLog: ['[10:32:15] Infezione riuscita.']
+        },
+        {
+            id: 'host_3',
+            ipAddress: '192.0.2.140',
+            location: 'Tokyo, Japan',
+            status: 'Compromised',
+            infectionType: 'Spyware',
+            stabilityScore: 40.3,
+            traceabilityScore: 55.6,
+            resources: {
+                cpuPower: 0.8,
+                bandwidth: 50,
+                flowSlots: 1
+            },
+            hookedFlows: [null],
+            activityLog: ['[10:25:40] Infezione riuscita.', '[10:55:01] Rilevata operazione fallita.']
+        }
+    ],
+    botnetGroups: {
+        'Alpha': { hostIds: ['host_1'], attachedFlows: [] },
+        'Beta': { hostIds: ['host_2'], attachedFlows: [] }
+    },
+    dataPacks: [],
+    activeOperations: [],
+    worldData: { /* ... */ },
+    newsFeed: [ /* ... */ ],
+    quests: [ /* ... */ ],
+    clan: null
+};
+
+let state = {};
+
+function loadState() {
+    const savedState = localStorage.getItem('hackerTycoonState');
+    if (savedState) {
+        state = JSON.parse(savedState);
+        // Assicura che i nuovi campi esistano anche nei salvataggi vecchi
+        if (state.infectedHostPool) {
+            state.infectedHostPool.forEach(host => {
+                if (host.stabilityScore === undefined) host.stabilityScore = 80;
+                if (host.traceabilityScore === undefined) host.traceabilityScore = 15;
+                if (host.resources === undefined) host.resources = { cpuPower: 1, bandwidth: 100, flowSlots: 1 };
+                if (host.hookedFlows === undefined) host.hookedFlows = [null];
+                if (host.activityLog === undefined) host.activityLog = [];
+            });
+        }
+    } else {
+        state = JSON.parse(JSON.stringify(initialGameState)); // Deep copy
+    }
+}
+
+function saveState() {
+    localStorage.setItem('hackerTycoonState', JSON.stringify(state));
+}
+
+function resetGame() {
+    localStorage.removeItem('hackerTycoonState');
+    state = JSON.parse(JSON.stringify(initialGameState));
+    location.reload();
+}
+
+loadState();

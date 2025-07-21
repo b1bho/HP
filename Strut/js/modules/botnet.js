@@ -1,5 +1,5 @@
 // File: js/modules/botnet.js
-// VERSIONE AGGIORNATA: Aggiunta gestione gruppi e funzionalità pulsanti di manutenzione.
+// VERSIONE CORRETTA E INTEGRATA
 
 let selectedHostIds = new Set();
 
@@ -18,7 +18,7 @@ function updateBotnetAggregateStats() {
 
     let aggregatePower = 0;
     state.infectedHostPool.forEach(host => {
-        if (host.status === 'Active') {
+        if (host.status === 'Active' && host.resources) {
             aggregatePower += host.resources.cpuPower;
         }
     });
@@ -51,7 +51,6 @@ function renderInfectedHostsList() {
         return;
     }
 
-    // Raggruppa gli host per gruppo
     const groupedHosts = { 'unassigned': [] };
     Object.keys(state.botnetGroups).forEach(g => groupedHosts[g] = []);
     
@@ -80,7 +79,7 @@ function renderInfectedHostsList() {
                 if (host.status === 'Compromised') statusColor = 'text-red-400';
 
                 return `
-                    <div class="host-card p-3 rounded-lg cursor-pointer hover:bg-gray-700/50 ${selectedHostIds.has(host.id) ? 'bg-indigo-900/50 border border-indigo-500' : 'border border-transparent'}" data-host-id="${host.id}">
+                    <div class="host-card p-3 rounded-lg cursor-pointer hover:bg-gray-700/50 ${selectedHostIds.has(host.id) ? 'bg-indigo-900/50 border border-indigo-500' : 'border-transparent'}" data-host-id="${host.id}">
                         <div class="flex justify-between items-center">
                             <p class="font-mono text-sm text-white">${host.ipAddress}</p>
                             <p class="text-xs font-bold ${statusColor}">${host.status}</p>
@@ -100,17 +99,33 @@ function renderInfectedHostsList() {
     container.querySelectorAll('.host-card').forEach(card => {
         card.addEventListener('click', (event) => {
             const hostId = card.dataset.hostId;
-            if (event.ctrlKey || event.metaKey) {
+            const isMultiSelect = event.ctrlKey || event.metaKey;
+
+            if (isMultiSelect) {
                 if (selectedHostIds.has(hostId)) {
                     selectedHostIds.delete(hostId);
                 } else {
                     selectedHostIds.add(hostId);
                 }
             } else {
-                selectedHostIds.clear();
-                selectedHostIds.add(hostId);
+                if (selectedHostIds.has(hostId) && selectedHostIds.size === 1) {
+                    selectedHostIds.clear();
+                } else {
+                    selectedHostIds.clear();
+                    selectedHostIds.add(hostId);
+                }
             }
-            renderInfectedHostsList();
+            
+            document.querySelectorAll('#infected-hosts-list .host-card').forEach(c => {
+                if (selectedHostIds.has(c.dataset.hostId)) {
+                    c.classList.add('bg-indigo-900/50', 'border-indigo-500');
+                    c.classList.remove('border-transparent');
+                } else {
+                    c.classList.remove('bg-indigo-900/50', 'border-indigo-500');
+                    c.classList.add('border-transparent');
+                }
+            });
+
             renderHostDetailsPanel();
         });
     });
@@ -120,73 +135,132 @@ function renderHostDetailsPanel() {
     const container = document.getElementById('host-details-panel');
     if (!container) return;
 
-    // UI per la gestione dei gruppi (visibile se ci sono host selezionati)
-    let groupManagementHTML = '';
-    if (selectedHostIds.size > 0) {
-        const groupOptions = Object.keys(state.botnetGroups).map(g => `<option value="${g}">${g}</option>`).join('');
-        groupManagementHTML = `
-            <div class="mt-6 p-4 bg-gray-900/50 rounded-lg">
-                <h4 class="text-lg font-semibold text-indigo-300 mb-3">Gestione Gruppo</h4>
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="new-group-name" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full" placeholder="Nuovo nome gruppo...">
-                    <button id="create-group-btn" class="px-4 py-2 font-semibold rounded-md bg-green-600 hover:bg-green-700">Crea</button>
-                </div>
-                <div class="flex gap-2">
-                    <select id="assign-group-select" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full">
-                        <option value="unassigned">Nessun Gruppo</option>
-                        ${groupOptions}
-                    </select>
-                    <button id="assign-group-btn" class="px-4 py-2 font-semibold rounded-md bg-blue-600 hover:bg-blue-700">Assegna</button>
-                </div>
-            </div>
-        `;
-    }
-
     if (selectedHostIds.size === 0) {
         container.innerHTML = `<p class="text-center text-gray-500">Seleziona un host dalla lista per visualizzare i dettagli e lanciare comandi.</p>`;
         return;
     }
+
+    const groupOptions = Object.keys(state.botnetGroups).map(g => `<option value="${g}">${g}</option>`).join('');
+    const groupManagementHTML = `
+        <div class="mt-6 p-4 bg-gray-900/50 rounded-lg">
+            <h4 class="text-lg font-semibold text-indigo-300 mb-3">Gestione Gruppo</h4>
+            <div class="flex gap-2 mb-2">
+                <input type="text" id="new-group-name" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full" placeholder="Nuovo nome gruppo...">
+                <button id="create-group-btn" class="px-4 py-2 font-semibold rounded-md bg-green-600 hover:bg-green-700">Crea</button>
+            </div>
+            <div class="flex gap-2">
+                <select id="assign-group-select" class="bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white w-full">
+                    <option value="unassigned">Nessun Gruppo</option>
+                    ${groupOptions}
+                </select>
+                <button id="assign-group-btn" class="px-4 py-2 font-semibold rounded-md bg-blue-600 hover:bg-blue-700">Assegna</button>
+            </div>
+        </div>
+    `;
 
     if (selectedHostIds.size > 1) {
         container.innerHTML = `<p class="text-center text-gray-300">${selectedHostIds.size} host selezionati. Pronti a ricevere un comando di gruppo.</p>${groupManagementHTML}`;
     } else {
         const hostId = selectedHostIds.values().next().value;
         const host = state.infectedHostPool.find(h => h.id === hostId);
-        if (!host) return;
+        if (!host) {
+            container.innerHTML = `<p class="text-center text-red-500">Errore: Host non trovato.</p>`;
+            return;
+        }
+
+        let flowSlotsHTML = '';
+        const numSlots = host.resources?.flowSlots || 1;
+        for (let i = 0; i < numSlots; i++) {
+            const hookedFlowId = host.hookedFlows?.[i];
+            const flow = hookedFlowId ? state.savedFlows.find(f => f.id === hookedFlowId) : null;
+            
+            // **CORREZIONE**: Aggiunto controllo Array.isArray
+            const flowsOptions = Array.isArray(state.savedFlows) 
+                ? state.savedFlows.map(f => `<option value="${f.id}" ${f.id === hookedFlowId ? 'selected' : ''}>${f.name}</option>`).join('')
+                : '';
+
+            flowSlotsHTML += `
+                <div class="flow-hook-slot p-3 rounded-lg ${flow ? 'hooked' : ''}">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm font-bold ${flow ? 'text-purple-300' : 'text-gray-500'}">
+                            ${flow ? flow.name : `Slot Flusso ${i + 1}`}
+                        </span>
+                        <select class="hook-flow-select bg-gray-600 text-xs rounded" data-host-id="${hostId}" data-slot-index="${i}">
+                            <option value="">- Aggancia Flusso -</option>
+                            ${flowsOptions}
+                        </select>
+                    </div>
+                </div>
+            `;
+        }
+        
+        let activityLogHTML = (host.activityLog && host.activityLog.length > 0) 
+            ? host.activityLog.slice(-5).reverse().map(log => `<li class="text-xs">${log}</li>`).join('')
+            : '<li class="text-xs text-gray-500">Nessuna attività recente.</li>';
 
         container.innerHTML = `
             <h3 class="text-xl font-bold font-mono text-white mb-2">${host.ipAddress}</h3>
             <p class="text-sm text-gray-400 mb-4">${host.location}</p>
+            
             <div class="grid grid-cols-2 gap-4 text-sm mb-6">
                 <div><span class="font-semibold text-gray-300">Status:</span> <span class="font-bold text-green-400">${host.status}</span></div>
-                <div><span class="font-semibold text-gray-300">Stabilità:</span> ${host.stabilityScore.toFixed(0)}%</div>
-                <div><span class="font-semibold text-gray-300">Tracciabilità:</span> ${host.traceabilityScore.toFixed(0)}%</div>
-                <div><span class="font-semibold text-gray-300">Potenza CPU:</span> ${host.resources.cpuPower.toFixed(2)} GFLOPS</div>
-                <div><span class="font-semibold text-gray-300">Banda:</span> ${host.resources.bandwidth} Mbps</div>
+                <div><span class="font-semibold text-gray-300">Stabilità:</span> ${host.stabilityScore?.toFixed(0) || 'N/A'}%</div>
+                <div><span class="font-semibold text-gray-300">Tracciabilità:</span> ${host.traceabilityScore?.toFixed(0) || 'N/A'}%</div>
+                <div><span class="font-semibold text-gray-300">Potenza CPU:</span> ${host.resources?.cpuPower?.toFixed(2) || 'N/A'} GFLOPS</div>
+                <div><span class="font-semibold text-gray-300">Banda:</span> ${host.resources?.bandwidth || 'N/A'} Mbps</div>
                 <div><span class="font-semibold text-gray-300">Infezione:</span> ${host.infectionType}</div>
             </div>
-            <div>
-                <h4 class="text-lg font-semibold text-indigo-300 mb-3">Azioni di Manutenzione</h4>
-                <div class="grid grid-cols-3 gap-3">
-                    <button id="reinforce-btn" class="bg-yellow-600 hover:bg-yellow-700 text-black p-2 rounded text-sm">Rinforza Infezione</button>
-                    <button id="remove-traces-btn" class="bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">Rimuovi Tracce</button>
-                    <button id="deactivate-btn" class="bg-red-600 hover:bg-red-700 p-2 rounded text-sm">Disattiva</button>
+
+            <div class="mb-6">
+                <h4 class="text-lg font-semibold text-indigo-300 mb-3">Azioni Operative</h4>
+                <div class="space-y-2 mb-4">
+                    ${flowSlotsHTML}
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="execute-flow-btn" data-host-id="${hostId}" class="bg-purple-600 hover:bg-purple-700 p-2 rounded text-sm font-bold">Esegui Flusso</button>
+                    <button id="propagate-btn" data-host-id="${hostId}" class="bg-green-600 hover:bg-green-700 p-2 rounded text-sm font-bold">Propaga Infezione</button>
                 </div>
             </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-300 mb-3">Manutenzione</h4>
+                    <div class="grid grid-cols-1 gap-3">
+                        <button id="reinforce-btn" data-host-id="${hostId}" class="bg-yellow-600 hover:bg-yellow-700 text-black p-2 rounded text-sm">Rinforza Infezione</button>
+                        <button id="remove-traces-btn" data-host-id="${hostId}" class="bg-blue-600 hover:bg-blue-700 p-2 rounded text-sm">Rimuovi Tracce</button>
+                        <button id="deactivate-btn" data-host-id="${hostId}" class="bg-red-600 hover:bg-red-700 p-2 rounded text-sm">Disattiva</button>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-indigo-300 mb-3">Log Attività</h4>
+                    <ul class="activity-log-panel space-y-1">
+                        ${activityLogHTML}
+                    </ul>
+                </div>
+            </div>
+            
             ${groupManagementHTML}
         `;
-        // Listener per i pulsanti di azione del singolo host
-        document.getElementById('reinforce-btn')?.addEventListener('click', reinforceInfection);
-        document.getElementById('remove-traces-btn')?.addEventListener('click', removeTraces);
-        document.getElementById('deactivate-btn')?.addEventListener('click', deactivateHost);
+        
+        document.getElementById('reinforce-btn')?.addEventListener('click', (e) => reinforceInfection(e.target.dataset.hostId));
+        document.getElementById('remove-traces-btn')?.addEventListener('click', (e) => removeTraces(e.target.dataset.hostId));
+        document.getElementById('deactivate-btn')?.addEventListener('click', (e) => deactivateHost(e.target.dataset.hostId));
+        document.getElementById('execute-flow-btn')?.addEventListener('click', (e) => executeFlowOnHost(e.target.dataset.hostId));
+        document.getElementById('propagate-btn')?.addEventListener('click', (e) => propagateFromHost(e.target.dataset.hostId));
+
+        container.querySelectorAll('.hook-flow-select').forEach(select => {
+            select.addEventListener('change', (event) => {
+                const hostId = event.target.dataset.hostId;
+                const slotIndex = parseInt(event.target.dataset.slotIndex);
+                const flowId = event.target.value;
+                hookFlowToSlot(hostId, slotIndex, flowId);
+            });
+        });
     }
     
-    // Listener per la gestione dei gruppi
     document.getElementById('create-group-btn')?.addEventListener('click', createBotnetGroup);
     document.getElementById('assign-group-btn')?.addEventListener('click', assignHostsToGroup);
 }
-
-// --- NUOVE FUNZIONI ---
 
 function createBotnetGroup() {
     const input = document.getElementById('new-group-name');
@@ -202,7 +276,6 @@ function createBotnetGroup() {
     state.botnetGroups[groupName] = { hostIds: [], attachedFlows: [] };
     state.botnetGroups[groupName].hostIds.push(...selectedHostIds);
     
-    // Rimuovi gli host appena assegnati da altri gruppi
     Object.keys(state.botnetGroups).forEach(g => {
         if (g !== groupName) {
             state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => !selectedHostIds.has(id));
@@ -212,21 +285,17 @@ function createBotnetGroup() {
     saveState();
     showNotification(`Gruppo "${groupName}" creato con ${selectedHostIds.size} host.`, "success");
     selectedHostIds.clear();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
-    if (state.activePage === 'editor') populateHostSelector();
+    initBotnetPage();
 }
 
 function assignHostsToGroup() {
     const select = document.getElementById('assign-group-select');
     const groupName = select.value;
 
-    // Rimuovi gli host selezionati da tutti i gruppi
     Object.keys(state.botnetGroups).forEach(g => {
         state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => !selectedHostIds.has(id));
     });
 
-    // Assegna al nuovo gruppo (se non è "unassigned")
     if (groupName !== 'unassigned' && state.botnetGroups[groupName]) {
         state.botnetGroups[groupName].hostIds.push(...selectedHostIds);
     }
@@ -234,17 +303,14 @@ function assignHostsToGroup() {
     saveState();
     showNotification(`${selectedHostIds.size} host assegnati.`, "info");
     selectedHostIds.clear();
-    renderHostDetailsPanel();
-    renderInfectedHostsList();
+    initBotnetPage();
 }
 
-function reinforceInfection() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
+function reinforceInfection(hostId) {
     const host = state.infectedHostPool.find(h => h.id === hostId);
     if (!host) return;
 
-    const cost = 0.001; // Costo in BTC
+    const cost = 0.001;
     if (state.btc < cost) {
         showNotification(`BTC insufficienti. Costo: ${cost} BTC.`, "error");
         return;
@@ -253,17 +319,16 @@ function reinforceInfection() {
     
     host.stabilityScore = Math.min(100, host.stabilityScore + 15);
     host.traceabilityScore = Math.min(100, host.traceabilityScore + 25);
+    addLogToHost(hostId, "Infezione rinforzata. Stabilità e tracciabilità aumentate.");
 
-    showNotification(`Infezione su ${host.ipAddress} rinforzata. Stabilità e tracciabilità aumentate.`, "success");
+    showNotification(`Infezione su ${host.ipAddress} rinforzata.`, "success");
     saveState();
     updateUI();
     renderHostDetailsPanel();
     renderInfectedHostsList();
 }
 
-function removeTraces() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
+function removeTraces(hostId) {
     const host = state.infectedHostPool.find(h => h.id === hostId);
     if (!host) return;
 
@@ -275,36 +340,33 @@ function removeTraces() {
     state.btc -= cost;
 
     const antiForensicsLevel = state.unlocked['Anti-Forensics'] || 0;
-    const effectiveness = (state.level * 2) + (antiForensicsLevel * 10); // 2 punti per livello, 10 per talento
+    const effectiveness = (state.level * 2) + (antiForensicsLevel * 10);
     const reduction = Math.min(host.traceabilityScore, Math.floor(Math.random() * effectiveness));
     
     host.traceabilityScore -= reduction;
+    addLogToHost(hostId, `Rimozione tracce. Tracciabilità ridotta di ${reduction} punti.`);
 
-    showNotification(`Pulizia tracce su ${host.ipAddress} eseguita. Tracciabilità ridotta di ${reduction} punti.`, "success");
+    showNotification(`Pulizia tracce su ${host.ipAddress} eseguita.`, "success");
     saveState();
     updateUI();
     renderHostDetailsPanel();
     renderInfectedHostsList();
 }
 
-function deactivateHost() {
-    if (selectedHostIds.size !== 1) return;
-    const hostId = selectedHostIds.values().next().value;
+function deactivateHost(hostId) {
     const hostIndex = state.infectedHostPool.findIndex(h => h.id === hostId);
     if (hostIndex === -1) return;
-
     const host = state.infectedHostPool[hostIndex];
 
     if (confirm(`Sei sicuro di voler disattivare permanentemente l'host ${host.ipAddress}? Questa azione è irreversibile.`)) {
         if (host.traceabilityScore > 50) {
             const penalty = Math.ceil(host.traceabilityScore / 10);
             state.identity.traces += penalty;
-            showNotification(`Host disattivato, ma le tracce evidenti hanno aumentato il tuo livello di sospetto di +${penalty}!`, "error");
+            showNotification(`Host disattivato, ma le tracce hanno aumentato il tuo livello di sospetto di +${penalty}!`, "error");
         } else {
             showNotification(`Host ${host.ipAddress} disattivato con successo.`, "info");
         }
         
-        // Rimuovi l'host dal pool e da qualsiasi gruppo
         state.infectedHostPool.splice(hostIndex, 1);
         Object.keys(state.botnetGroups).forEach(g => {
             state.botnetGroups[g].hostIds = state.botnetGroups[g].hostIds.filter(id => id !== hostId);
@@ -313,6 +375,161 @@ function deactivateHost() {
         selectedHostIds.clear();
         saveState();
         updateUI();
-        initBotnetPage(); // Re-inizializza l'intera pagina
+        initBotnetPage();
     }
+}
+
+function addLogToHost(hostId, message) {
+    const host = state.infectedHostPool.find(h => h.id === hostId);
+    if (!host) return;
+    if (!host.activityLog) {
+        host.activityLog = [];
+    }
+    const timestamp = new Date().toLocaleTimeString('it-IT');
+    host.activityLog.push(`[${timestamp}] ${message}`);
+    if (host.activityLog.length > 20) {
+        host.activityLog.shift();
+    }
+}
+
+function hookFlowToSlot(hostId, slotIndex, flowId) {
+    const host = state.infectedHostPool.find(h => h.id === hostId);
+    if (!host) return;
+    if (!host.hookedFlows) {
+        host.hookedFlows = [];
+    }
+    
+    const flowName = flowId ? state.savedFlows.find(f => f.id === flowId)?.name : 'Nessuno';
+    host.hookedFlows[slotIndex] = flowId || null;
+    
+    addLogToHost(hostId, `Flusso "${flowName}" agganciato allo slot ${slotIndex + 1}.`);
+    saveState();
+    renderHostDetailsPanel();
+    showNotification(`Flusso ${flowName} agganciato.`, "info");
+}
+
+function executeFlowOnHost(hostId) {
+    const host = state.infectedHostPool.find(h => h.id === hostId);
+    if (!host) return;
+
+    const flowId = host.hookedFlows?.[0];
+    if (!flowId) {
+        showNotification("Nessun flusso agganciato allo slot primario.", "error");
+        return;
+    }
+    const flow = state.savedFlows.find(f => f.id === flowId);
+    if (!flow) {
+        showNotification("Flusso agganciato non trovato.", "error");
+        return;
+    }
+
+    addLogToHost(hostId, `Esecuzione flusso: ${flow.name}...`);
+    showNotification(`Esecuzione di "${flow.name}" su ${host.ipAddress}...`, 'info');
+
+    setTimeout(() => {
+        const successChance = (flow.stats.attack || 20) / 2 + (host.stabilityScore / 2);
+        const isSuccess = Math.random() * 100 < successChance;
+
+        if (isSuccess) {
+            const moneyGained = Math.floor(Math.random() * (flow.stats.attack || 20) * 100);
+            state.money += moneyGained;
+            host.stabilityScore = Math.max(0, host.stabilityScore - 5);
+            const msg = `Flusso eseguito con successo. Guadagnati ${formatMoney(moneyGained)}.`;
+            showNotification(msg, 'success');
+            addLogToHost(hostId, msg);
+
+            if (flow.blocks.some(b => b.type === 'Esfiltra dati da database')) {
+                const dataPack = {
+                    id: `dp_${Date.now()}`,
+                    name: `Dati sensibili da ${host.ipAddress}`,
+                    type: 'Dati Aziendali',
+                    value: Math.floor(Math.random() * 150) + 50,
+                    source: host.location
+                };
+                state.dataPacks.push(dataPack);
+                const dataMsg = `Pacchetto dati esfiltrato da ${host.ipAddress}.`;
+                showNotification(dataMsg, 'success');
+                addLogToHost(hostId, dataMsg);
+            }
+        } else {
+            host.stabilityScore = Math.max(0, host.stabilityScore - 20);
+            host.traceabilityScore = Math.min(100, host.traceabilityScore + 15);
+            const msg = `Esecuzione fallita. Stabilità ridotta e rischio rilevamento aumentato.`;
+            showNotification(msg, 'error');
+            addLogToHost(hostId, msg);
+
+            if (host.stabilityScore <= 0) {
+                const cleanMsg = `Host ${host.ipAddress} diventato instabile e perso.`;
+                showNotification(cleanMsg, "error");
+                addLogToHost(hostId, cleanMsg);
+                deactivateHost(hostId);
+                return;
+            }
+        }
+        
+        saveState();
+        updateUI();
+        renderHostDetailsPanel();
+        renderInfectedHostsList();
+    }, 1500);
+}
+
+function propagateFromHost(hostId) {
+    const host = state.infectedHostPool.find(h => h.id === hostId);
+    if (!host) return;
+
+    const flowId = host.hookedFlows?.[0];
+    const flow = flowId ? state.savedFlows.find(f => f.id === flowId) : null;
+
+    if (!flow || !flow.blocks.some(b => b.type === 'Genera worm di rete')) {
+        showNotification("È necessario un flusso con un blocco 'Genera worm di rete' per la propagazione.", "error");
+        addLogToHost(hostId, "Tentativo di propagazione fallito: flusso non idoneo.");
+        renderHostDetailsPanel();
+        return;
+    }
+
+    showNotification(`Tentativo di propagazione da ${host.ipAddress}...`, "info");
+    addLogToHost(hostId, `Avvio propagazione con il flusso "${flow.name}"...`);
+
+    setTimeout(() => {
+        const successChance = (flow.stats.stealth || 20) + (host.stabilityScore / 5);
+        if (Math.random() * 100 < successChance) {
+            const newHost = generateRandomHost();
+            state.infectedHostPool.push(newHost);
+            const msg = `Propagazione riuscita! Nuovo host ${newHost.ipAddress} aggiunto alla botnet.`;
+            showNotification(msg, 'success');
+            addLogToHost(hostId, `Propagazione riuscita. Infettato ${newHost.ipAddress}.`);
+            host.stabilityScore = Math.max(0, host.stabilityScore - 10);
+        } else {
+            const msg = `Propagazione fallita. L'infezione è stata bloccata.`;
+            showNotification(msg, 'error');
+            addLogToHost(hostId, `Propagazione fallita.`);
+            host.traceabilityScore = Math.min(100, host.traceabilityScore + 20);
+        }
+
+        saveState();
+        updateUI();
+        initBotnetPage();
+    }, 2000);
+}
+
+function generateRandomHost() {
+    const newId = `host_${Date.now()}`;
+    const newResources = {
+        cpuPower: parseFloat((Math.random() * 2 + 0.5).toFixed(2)),
+        bandwidth: Math.floor(Math.random() * 900 + 100),
+        flowSlots: Math.floor(Math.random() * 3 + 1)
+    };
+    return {
+        id: newId,
+        ipAddress: `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+        location: 'Unknown',
+        status: 'Active',
+        infectionType: 'Worm',
+        stabilityScore: 95,
+        traceabilityScore: 5,
+        resources: newResources,
+        hookedFlows: new Array(newResources.flowSlots).fill(null),
+        activityLog: [`[${new Date().toLocaleTimeString('it-IT')}] Infezione riuscita tramite propagazione.`]
+    };
 }
