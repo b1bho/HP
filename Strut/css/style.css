@@ -1,0 +1,646 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #111827;
+    color: #e5e7eb;
+    overflow-x: hidden;
+}
+
+/* Stili comuni */
+.nav-btn {
+    transition: all 0.3s ease;
+    border-bottom: 2px solid transparent;
+}
+.nav-btn.active, .nav-btn:hover {
+    color: #818cf8;
+    border-bottom-color: #818cf8;
+}
+.branch-title {
+    font-family: 'Roboto Mono', monospace;
+    background: linear-gradient(to right, #4f46e5, #a855f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Stili Profilo Hacker e Talenti */
+.profile-sidebar-btn {
+    background-color: #1f2937;
+    transition: all 0.2s;
+}
+.profile-sidebar-btn.active, .profile-sidebar-btn:hover {
+    background-color: #4f46e5;
+}
+.profile-section {
+    display: none;
+}
+.profile-section.active {
+    display: block;
+}
+.talent-branch-header {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-radius: 8px;
+}
+.talent-branch-header:hover {
+    background-color: #374151;
+}
+.talent-branch-header.active {
+     border-bottom-left-radius: 0;
+     border-bottom-right-radius: 0;
+}
+.talent-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    border-top: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+.talent-card {
+    background-color: transparent;
+    border: none;
+    border-top: 1px solid #374151;
+    border-radius: 0;
+    cursor: pointer;
+}
+.progress-bar-container {
+    background-color: #374151;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+.progress-bar {
+    background-color: #4f46e5;
+    height: 100%;
+    transition: width 0.5s ease-in-out;
+}
+
+/* Stili Editor Flussi */
+#editor-container {
+    height: calc(100vh - 220px);
+}
+#toolbox {
+    background-color: #1f2937;
+    border-right: 1px solid #374151;
+}
+.tool-block {
+    background-color: #374151;
+    border: 1px solid #4b5563;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+.tool-block:hover {
+    background-color: #4f46e5;
+}
+.tool-block i {
+    width: 24px;
+    text-align: center;
+    color: #a855f7;
+}
+.tool-block:active { cursor: grabbing; }
+#canvas {
+    background-image: radial-gradient(#374151 1px, transparent 0);
+    background-size: 20px 20px;
+    position: relative;
+    overflow: hidden;
+}
+.canvas-node {
+    background-color: #272d44;
+    border: 1px solid #4f46e5;
+    position: absolute;
+    cursor: move;
+    padding: 8px 12px;
+    border-radius: 8px;
+    touch-action: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 120px;
+    text-align: center;
+}
+.canvas-node .node-icon {
+    font-size: 1.25rem;
+    color: #a855f7;
+}
+.canvas-node .node-name {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+.connector {
+    width: 12px;
+    height: 12px;
+    background-color: #a855f7;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 2px solid #111827;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+.connector:hover {
+    background-color: #34d399;
+    transform: translateY(-50%) scale(1.2);
+}
+.connector.output { right: -7px; }
+.connector.input { left: -7px; }
+
+/* Stili Mondo 3D e statistiche */
+#world-page-container {
+    display: grid;
+    grid-template-columns: 250px 1fr 250px;
+    gap: 1.5rem;
+    height: calc(100vh - 150px);
+    position: relative;
+}
+#globe-container {
+    position: relative;
+}
+#globe-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 8px;
+    cursor: grab;
+}
+#globe-canvas:active {
+    cursor: grabbing;
+}
+.stats-panel {
+    background-color: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(5px);
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Roboto Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+}
+.stat-item {
+    border-bottom: 1px solid #374151;
+    padding-bottom: 0.5rem;
+}
+.stat-item:last-child {
+    border-bottom: none;
+}
+.stat-label {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+.stat-value {
+    color: #34d399; /* Verde neon */
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+#attack-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(31, 41, 55, 0.9);
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    padding: 1rem;
+    width: 300px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 20;
+}
+#attack-panel.hidden {
+    opacity: 0;
+    transform: translateX(20px);
+    pointer-events: none;
+}
+.stat-value.success { color: #34d399; }
+.stat-value.fail { color: #f87171; }
+
+/* Stili Mercato */
+.market-item {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    transition: all 0.2s ease-in-out;
+}
+.market-item:hover {
+    border-color: #4f46e5;
+    transform: translateY(-4px);
+}
+.buy-btn {
+    background-color: #4f46e5;
+    transition: background-color 0.2s;
+}
+.buy-btn:hover {
+    background-color: #4338ca;
+}
+.buy-btn:disabled {
+    background-color: #374151;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Stili Quartier Generale (HQ) */
+#hq-visual {
+    background: url('https://placehold.co/1200x600/1f2937/e5e7eb?text=Il+Tuo+Quartier+Generale') center center / cover;
+    border: 1px solid #374151;
+    min-height: 400px;
+}
+.hq-stat-card {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+}
+.hq-bonus-text {
+    color: #34d399;
+}
+
+/* Stili Clan */
+.clan-card {
+     background-color: #1f2937;
+     border: 1px solid #374151;
+}
+.member-list-item {
+    background-color: #2b3649;
+}
+.role-leader {
+    color: #f59e0b; /* Ambra */
+}
+.role-member {
+    color: #a5b4fc; /* Indaco chiaro */
+}
+.infra-card {
+    background-color: #272d44;
+    border-left: 4px solid #4f46e5;
+}
+.tier-indicator {
+    background-color: #4f46e5;
+}
+
+/* Stili Pannello Admin */
+#admin-panel.open {
+    transform: translateX(0);
+}
+
+/* Stili per la ricerca nella toolbox */
+#toolbox-search {
+    padding-left: 2.25rem; /* Spazio per l'icona */
+}
+.toolbox-category-wrapper .talent-branch-header {
+    padding: 0.5rem 0.75rem; /* Padding ridotto */
+    background-color: #2b3649;
+}
+.toolbox-category-wrapper .talent-branch-header:hover {
+    background-color: #374151;
+}
+.toolbox-category-wrapper .talent-panel {
+    background-color: transparent;
+    border: none;
+}
+
+
+#nation-panel {
+    transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    opacity: 0;
+    pointer-events: none; /* Evita interazioni quando è nascosto */
+}
+
+#nation-panel.visible {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto; /* Riabilita le interazioni quando è visibile */
+}
+
+
+.nation-stat-bar {
+    background-color: #374151;
+    border-radius: 9999px;
+    overflow: hidden;
+    height: 8px;
+}
+
+.nation-stat-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s ease-in-out;
+}
+
+.target-item {
+    background-color: #1f2937;
+    border: 1px solid #374151;
+    transition: all 0.2s ease-in-out;
+}
+
+.target-item:hover {
+    border-color: #4f46e5;
+    background-color: #2b3649;
+}
+
+.target-item.selected {
+    border-color: #818cf8;
+    background-color: #3730a3;
+}
+
+.flow-slot {
+    border: 2px dashed #374151;
+    background-color: #111827;
+    min-height: 50px;
+}
+
+.flow-slot.filled {
+    border-style: solid;
+    border-color: #4f46e5;
+    background-color: #1f2937;
+}
+
+/* Stili aggiuntivi per i pannelli di log */
+.stats-panel {
+    background-color: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(5px);
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Roboto Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+}
+.stat-item {
+    border-bottom: 1px solid #374151;
+    padding-bottom: 0.5rem;
+}
+.stat-item:last-child {
+    border-bottom: none;
+}
+.stat-label {
+    color: #9ca3af;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+.stat-value {
+    color: #34d399;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+.stat-value.success { color: #34d399; }
+.stat-value.fail { color: #f87171; }
+
+.xp-bar-bg {
+    background-color: #374151;
+    border-radius: 9999px;
+    height: 8px;
+    padding: 2px;
+}
+.xp-bar-fill {
+    background-color: #818cf8;
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.5s ease-in-out;
+}
+
+.data-card {
+    background-color: #1f2937;
+    border-left: 4px solid #4f46e5;
+}
+
+/* Stili per il Dark Market */
+.price-input {
+    -moz-appearance: textfield;
+}
+.price-input::-webkit-outer-spin-button,
+.price-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+
+#active-attacks-container > div + div {
+    margin-top: 1rem;
+}
+
+#active-attacks-grid-container .operation-card {
+    transition: all 0.3s ease-in-out;
+    max-height: 68px; /* Altezza da compatto */
+    overflow: hidden;
+}
+
+#active-attacks-grid-container .operation-card.expanded {
+    max-height: 300px; /* Altezza da espanso */
+}
+
+.canvas-node {
+    background-color: #272d44;
+    border: 1px solid #4f46e5;
+    position: absolute;
+    cursor: move;
+    border-radius: 8px;
+    touch-action: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 28px 8px 28px 8px;
+    min-width: 150px;
+    text-align: center;
+}
+
+.canvas-node.invalid {
+    border-color: #ef4444;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+}
+
+.node-icon {
+    font-size: 1.25rem;
+    color: #a855f7;
+    margin-bottom: 4px;
+}
+
+.node-name {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.connectors-top, .connectors-bottom, .connectors-left, .connectors-right {
+    position: absolute;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+.connectors-top { top: -7px; left: 50%; transform: translateX(-50%); }
+.connectors-bottom { bottom: -7px; left: 50%; transform: translateX(-50%); }
+.connectors-left { left: -7px; top: 50%; transform: translateY(-50%); flex-direction: column; }
+.connectors-right { right: -7px; top: 50%; transform: translateY(-50%); flex-direction: column; }
+
+.connector {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #111827;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.connector.selected {
+    transform: scale(1.4);
+    box-shadow: 0 0 10px #fff;
+}
+.connector.compatible {
+    opacity: 1;
+    transform: scale(1.2);
+    box-shadow: 0 0 15px #a3e635;
+}
+.connector.incompatible {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.routing-node {
+    background-color: #374151;
+    border: 1px solid #4b5563;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.routing-node:hover {
+    background-color: #4f46e5;
+    border-color: #818cf8;
+}
+
+.routing-slot {
+    min-height: 50px;
+    transition: background-color 0.2s;
+}
+
+.routing-slot.occupied {
+    border-style: solid;
+    border-color: #4f46e5;
+    background-color: #1f2937;
+    text-align: left;
+}
+
+#routing-summary span {
+    color: #a5b4fc;
+    font-weight: 700;
+}
+
+.notification {
+    background-color: rgba(31, 41, 55, 0.9);
+    backdrop-filter: blur(5px);
+    border-left-width: 4px;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.5s ease-out forwards, fadeOut 0.5s ease-in 7.5s forwards;
+}
+
+.notification.error { border-color: #ef4444; } /* Rosso */
+.notification.success { border-color: #22c55e; } /* Verde */
+.notification.info { border-color: #3b82f6; } /* Blu */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* --- NUOVI STILI PER LA BARRA DI TRACCIABILITÀ --- */
+.trace-bar-bg {
+    width: 100%;
+    height: 6px;
+    background-color: #1f2937;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.trace-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.trace-bar-fill.trace-low {
+    background-color: #22c55e; /* Verde */
+}
+.trace-bar-fill.trace-medium {
+    background-color: #f59e0b; /* Giallo/Ambra */
+}
+.trace-bar-fill.trace-high {
+    background-color: #ef4444; /* Rosso */
+}
+/* --- STILI PER LA BARRA DI TRACCIABILITÀ --- */
+.trace-bar-bg {
+    width: 100%;
+    height: 6px;
+    background-color: #1f2937;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.trace-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.trace-bar-fill.trace-low {
+    background-color: #22c55e; /* Verde */
+}
+.trace-bar-fill.trace-medium {
+    background-color: #f59e0b; /* Giallo/Ambra */
+}
+.trace-bar-fill.trace-high {
+    background-color: #ef4444; /* Rosso */
+}
+
+/* --- STILI PER IL PANNELLO DETTAGLI HOST --- */
+.flow-hook-slot {
+    background-color: rgba(31, 41, 55, 0.5);
+    border: 1px solid #374151;
+    transition: all 0.2s ease;
+}
+.flow-hook-slot.hooked {
+    background-color: rgba(79, 70, 229, 0.2);
+    border-color: #4f46e5;
+}
+
+.activity-log-panel {
+    background-color: rgba(17, 24, 39, 0.7);
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    height: 132px; /* Altezza fissa per allineamento */
+    overflow-y: auto;
+    font-family: 'Roboto Mono', monospace;
+}

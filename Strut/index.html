@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacker Tycoon - Rise of the Root</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leader-line-new@1.1.9/leader-line.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <header class="bg-gray-800/80 backdrop-blur-sm p-4 rounded-lg shadow-lg flex justify-between items-center sticky top-4 mx-4 z-50 border border-gray-700">
+        <h1 class="text-2xl font-bold tracking-tight text-white">Hacker Tycoon</h1>
+        
+        <nav class="flex justify-center items-center gap-4 md:gap-6">
+            <button data-page="hq" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-desktop mr-2"></i>HQ</button>
+            <button data-page="world" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-globe-americas mr-2"></i>Mondo</button>
+            <button data-page="botnet" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-network-wired mr-2"></i>Botnet</button>
+            <button data-page="editor" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-project-diagram mr-2"></i>Editor</button>
+            <button data-page="market" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-store mr-2"></i>Mercato</button>
+            <button data-page="profile" class="nav-btn px-3 py-2 font-semibold text-gray-300"><i class="fas fa-user-circle mr-2"></i>Profilo</button>
+            <div id="dynamic-nav-container"></div>
+        </nav>
+
+        <div class="flex items-center gap-4 text-sm sm:text-base">
+            <div class="flex items-center gap-2 p-2 bg-black/20 rounded-md" title="Valore attuale di 1 Bitcoin">
+                <i class="fa-solid fa-chart-line text-green-400"></i>
+                <span id="btc-value" class="font-bold text-white">$0.00</span>
+            </div>
+            
+            <div id="player-xp-bar-container" class="w-40">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-indigo-300">LVL <span id="player-level">1</span></span>
+                    <span class="text-xs text-gray-400"><span id="player-xp">0</span> / <span id="player-xp-next">100</span> XP</span>
+                </div>
+                <div class="xp-bar-bg">
+                    <div id="player-xp-bar-fill" class="xp-bar-fill"></div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 p-2 bg-black/20 rounded-md"><i class="fa-brands fa-bitcoin text-yellow-400"></i><span id="btc-balance" class="font-bold text-white">0</span></div>
+            <div class="flex items-center gap-2 p-2 bg-black/20 rounded-md"><i class="fa-brands fa-monero text-orange-500"></i><span id="xmr-balance" class="font-bold text-white">0</span></div>
+            <div class="flex items-center gap-2 p-2 bg-black/20 rounded-md"><i class="fas fa-star text-indigo-400"></i><span id="talent-points" class="font-bold text-white">0</span></div>
+            <button id="reset-button" class="px-3 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-700 transition-colors" title="Reset Stato"><i class="fas fa-undo"></i></button>
+        </div>
+    </header>
+
+    <main id="app-container" class="p-4 sm:p-6 md:p-8 mt-4">
+        </main>
+
+    <div id="talent-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[51]"></div>
+    <div id="attack-report-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[51]"></div>
+    <div id="storage-choice-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-[60]"></div>
+    <div id="admin-panel" class="fixed bottom-4 right-4 bg-gray-900/80 backdrop-blur-sm border border-indigo-500 rounded-lg p-4 shadow-2xl z-[100] w-80 transition-transform duration-300 translate-x-full"></div>
+
+    <div id="notification-container" class="fixed bottom-4 right-4 w-80 space-y-3 z-[200]"></div>
+
+    <script src="js/world_data.js"></script>
+    <script src="js/world_targets_data.js"></script>
+    <script src="js/flow_logic.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/quest_data.js"></script>
+    <script src="js/news_data.js"></script>
+    <script src="js/flow_validation.js"></script>
+    
+    <script src="js/modules/active_attacks.js"></script>
+    <script src="js/modules/profile.js"></script>
+    <script src="js/modules/editor.js"></script>
+    <script src="js/modules/world.js"></script>
+    <script src="js/modules/market.js"></script>
+    <script src="js/modules/quests.js"></script>
+    <script src="js/modules/admin.js"></script>
+    <script src="js/modules/dark_market.js"></script>
+    <script src="js/modules/intelligence.js"></script>
+    <script src="js/modules/hq.js"></script>
+    <script src="js/modules/botnet.js"></script>
+
+    <script src="js/main.js"></script>
+
+</body>
+</html>
